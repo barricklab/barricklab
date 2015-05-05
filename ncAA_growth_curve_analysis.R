@@ -1,0 +1,96 @@
+library(ggplot2)
+
+plate_key_file_path = "key.tab"
+plate_OD600_file_path = "OD600.tab"
+plate_RFS_file_path = "RFS.tab"
+plate_GFS_file_path = "GFS.tab" 
+
+##ggplot2 defaults
+theme_set(theme_bw(base_size = 24))
+theme_update(panel.border=element_rect(color="black", fill=NA, size=1), legend.key=element_rect(color=NA, fill=NA))
+line_thickness = 0.8
+
+#################################
+
+key.table = read.table(plate_key_file_path, header=T)
+OD600.table = read.table(plate_OD600_file_path, header=F, row.names=1 )
+RFS.table = read.table(plate_RFS_file_path, header=F, row.names=1)
+GFS.table = read.table(plate_GFS_file_path, header=F, row.names=1)
+
+#this makes a list of all levels that are not none in AA
+aa.list = levels(droplevels(subset(key.table, AA != "none")$AA))
+
+
+for(this.aa in aa.list) {
+  
+  mega.table = data.frame()
+  
+  
+  #Find the wells that are just amino acid and LB
+  background.wells = subset(key.table, (AA==this.aa) & (aaRS=="none") )
+
+  #How many clones?
+  clone.list = levels(droplevels(subset(key.table, (AA==this.aa) & (clone != "none"))$clone))
+
+  for(this.clone in clone.list) {
+  
+    pFRYC.wells = subset(key.table, (AA==this.aa) & (clone==this.clone) & (aaRS!="none") & (plasmid=="pFRYC"))
+    pFRY.wells = subset(key.table, (AA==this.aa) & (clone==this.clone) & (aaRS!="none") & (plasmid=="pFRY"))
+    
+    # note: this code will die if there are not exactly the right
+    # number of wells for pFRYC, pFRY, and the background
+    this.bg.OD600.table = OD600.table[as.character(background.wells$well),]
+    this.bg.GFS.table = GFS.table[as.character(background.wells$well),]
+    this.bg.RFS.table = RFS.table[as.character(background.wells$well),]
+    
+    this.pFRYC.OD600.table = OD600.table[as.character(pFRYC.wells$well),]
+    this.pFRYC.GFS.table = GFS.table[as.character(pFRYC.wells$well),]
+    this.pFRYC.RFS.table = RFS.table[as.character(pFRYC.wells$well),]
+    
+    this.pFRY.OD600.table = OD600.table[as.character(pFRY.wells$well),]
+    this.pFRY.RFS.table = RFS.table[as.character(pFRY.wells$well),]
+    this.pFRY.GFS.table = GFS.table[as.character(pFRY.wells$well),]    
+    
+    #create new mega.table rows for all signals minus background
+    for (i in 1:nrow(this.bg.OD600.table)) {
+    
+      for (j in 1:ncol(OD600.table)) {
+      
+        new.row = data.frame(
+          aa = this.aa,
+          clone = this.clone,
+          replicate = i,
+          time=OD600.table["Time",j],
+          OD600.bg = this.bg.OD600.table[i,j],
+          GFS.bg = this.bg.GFS.table[i,j],
+          RFS.bg = this.bg.RFS.table[i,j],
+          OD600.pFRYC = this.pFRYC.OD600.table[i,j],
+          RFS.pFRYC = this.pFRYC.RFS.table[i,j],
+          GFS.pFRYC = this.pFRYC.GFS.table[i,j],
+          OD600.pFRY = this.pFRY.OD600.table[i,j],
+          RFS.pFRY = this.pFRY.RFS.table[i,j],
+          GFS.pFRY = this.pFRY.GFS.table[i,j]
+        )
+      
+        mega.table = rbind(mega.table, new.row)
+      }
+    }
+  }
+  
+  #normalize
+  
+  ### ADD CODE HERE
+  
+  #mainly for debugging
+  write.csv(mega.table, paste(this.aa, "_mega_table.csv", sep=""))
+         
+  mega.table$replicate = factor(mega.table$replicate)
+  mega.table$clone_replicate = paste(mega.table$clone, mega.table$replicate, sep="_")
+  
+  p = ggplot(mega.table, aes(x=time, y=OD600.pFRYC, color=clone, linetype=replicate))
+  p + geom_line(shape=0, size=line_thickness) + coord_cartesian()
+  ggsave(filename=file.path(paste(this.aa, ".pdf", sep="")))
+}
+
+
+
