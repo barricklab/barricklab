@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
 Created on Thu Oct 30 11:15:09 2014
@@ -53,11 +53,17 @@ parser.add_argument("-d", "--DCS", action='store_true', default=False, help="cal
 parser.add_argument("--testing", action='store_true', default=False, help="break fastq read in after certain number of reads to increase speed")
 # parser.add_argument("-s", "--SSCS", action='store_true', default = False, help="calculate SSCS sequence, off by default. IF DCS specified, automatically on")  # TODO reimplement for general ability to trim, sscs, or dcs more fully.
 # parser.add_argument("-t", "--trimmed", help="enter 2 for requiring correctly identified MI on both reads, enter 1 for requiring correct MI on single read. non")#hasto be on for anything to happen?
+
+#show help if no arguments passed
+if len(sys.argv) < 2:
+    parser.print_help()
+    sys.exit(1)
+
 args = parser.parse_args()
 
 
 main_dict = {"F": [], "R": [], "reads": [], "total sequences": 0, "total consensus sequences": 0, "consensus sequences": 0, "DCS sequences": 0, "SSCS sequences": 0, "double singleton sequences": 0, "consensus": str()}  # F, R sequences, counters, and consensus name, double singleton sequences counter to be used for determining value of 2x read sscs
-molecular_index_search_string = "^[ACTGN]{%d}%s" % (args.length, args.constant_region)
+molecular_index_search_string = "^[ACTGN]{%d}%s" % (int(args.length), args.constant_region)
 assert re.match("^[A-Za-z0-9_]+$", args.prefix), "\nNon-alphanumeric characters found:\n%s\nPlease restrict to letters, numbers, or underscore characters in prefix name" % [x for x in args.prefix if not re.match("[A-Za-z0-9_]", x)]
 
 
