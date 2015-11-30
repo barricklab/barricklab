@@ -22,7 +22,7 @@ import re
 
 parser = argparse.ArgumentParser(description="read in .fastq.gz file names, generate .gd files. Script allows for single '_' in sample names")
 parser.add_argument("-a", "--author", help="your name")
-parser.add_argument("-f", "--fastq", help="relative path to files containing gzipped read files. Example: genomes/utexas_gsaf/Project_JA15636/SA15215")
+parser.add_argument("-f", "--fastq", help="relative path to files containing gzipped read files. Example: genomes/utexas_gsaf/Project_JA15636/SA15215", required=True)
 parser.add_argument("-r", "--reference", help="relative location and name of reference file. Example: genomes/reference/REL606.6.gbk")
 parser.add_argument("-b", "--barricklab", action='store_true', help="files are stored in barricklab location")
 parser.add_argument("-s", "--sra", action='store_true', help="files are on the NCBI SRA archive")
@@ -37,6 +37,16 @@ if len(sys.argv) < 2:
     sys.exit(1)
 
 args = parser.parse_args()
+
+# Check that barricklab or sra is location of read files
+if args.barricklab == args.sra == False:
+    parser.print_help()
+    print "\n\n!!!!!!!!!!!!!!!WARNING!!!!!!!!!!!!!!!\nNeither -barricklab nor -sra commands given. 1 must be supplied. Script aborted.\n\n"
+    sys.exit(1)
+if args.barricklab is not False and args.sra is not False:
+    parser.print_help()
+    print "\n\n!!!!!!!!!!!!!!!WARNING!!!!!!!!!!!!!!!\nBoth -barricklab and -sra commands given. Only 1 may be supplied. Script aborted.\n\n"
+    sys.exit(1)
 
 allowable_list = ['TIME', 'POPULATION', 'TREATMENT', 'SAMPLE']
 meta = {}
