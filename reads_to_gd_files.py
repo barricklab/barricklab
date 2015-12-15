@@ -21,15 +21,15 @@ import sys
 import re
 
 parser = argparse.ArgumentParser(description="read in .fastq.gz file names, generate .gd files. Script allows for single '_' in sample names")
-parser.add_argument("-a", "--author", help="your name")
-parser.add_argument("-f", "--fastq", help="relative path to files containing gzipped read files. Example: genomes/utexas_gsaf/Project_JA15636/SA15215", required=True)
-parser.add_argument("-r", "--reference", help="relative location and name of reference file. Example: genomes/reference/REL606.6.gbk")
-parser.add_argument("-b", "--barricklab", action='store_true', help="files are stored in barricklab location")
-parser.add_argument("-s", "--sra", action='store_true', help="files are on the NCBI SRA archive")
-parser.add_argument("-o", "--output", default="new_gd_files", help="output directory for .gd files (will be created if it doesn't exist)")
-parser.add_argument("-v", "--verbose", action='store_true', help="increase output")
-parser.add_argument("-i", "--index", action='store_true', help="Index files exist in directory, but should be ignored")
-parser.add_argument("-m", "--meta", help="optional meta data tsv file with headers. 'sample' required, any of the following allowed: 'population', 'time' (meaning generation), 'treatment', 'clone'")
+parser.add_argument("-a", "--author", help="Your name.")
+parser.add_argument("-f", "--fastq", help="Absolute path to directory containing gzipped read files. Example: /corral-repl/utexas/breseq/genomes/utexas_gsaf/Project_###", required=True)
+parser.add_argument("-i", "--index", action='store_true', help="Index files exist in fastq directory, but should be ignored.")
+parser.add_argument("-r", "--reference", help="Absolute location and name of reference file. Example: /corral-repl/utexas/breseq/genomes/reference/REL606.6.gbk")
+parser.add_argument("-b", "--barricklab", action='store_true', help="Files are stored in barricklab location on corral.")
+parser.add_argument("-s", "--sra", action='store_true', help="Files are on the NCBI SRA archive.")
+parser.add_argument("-o", "--output", default="new_gd_files", help="Output directory for .gd files (will be created if it doesn't exist).")
+parser.add_argument("-v", "--verbose", action='store_true', help="Increase output")
+parser.add_argument("-m", "--meta", help="Optional meta data tsv file with headers. 'sample' required, any of the following allowed: 'population', 'time' (meaning generation), 'treatment', 'clone'")
 
 
 #show help if no arguments passed
@@ -47,6 +47,12 @@ if args.barricklab == args.sra == False:
 if args.barricklab is not False and args.sra is not False:
     parser.print_help()
     print "\n\n!!!!!!!!!!!!!!!WARNING!!!!!!!!!!!!!!!\nBoth -barricklab and -sra commands given. Only 1 may be supplied. Script aborted.\n\n"
+    sys.exit(1)
+
+# Check that absolute paths for fastq and reference files are uesed.
+if not re.search("^/", args.fastq) and args.reference is not None or re.search("^/", args.reference):
+    parser.print_help()
+    print "\n\n!!!!!!!!!!!!!!!WARNING!!!!!!!!!!!!!!!\nPlease specify fastq directory and/or reference file from root."
     sys.exit(1)
 
 allowable_list = ['TIME', 'POPULATION', 'TREATMENT', 'SAMPLE']
