@@ -50,7 +50,7 @@ if args.barricklab is not False and args.sra is not False:
     sys.exit(1)
 
 # Check that absolute paths for fastq and reference files are used.
-if not re.search("^/", args.fastq) and re.search("None|^/", args.reference):
+if not (re.search("^/", args.fastq) and re.search("None|^/", args.reference)):
     parser.print_help()
     print "\n\n!!!!!!!!!!!!!!!WARNING!!!!!!!!!!!!!!!\nPlease specify fastq directory and/or reference file from root."
     sys.exit(1)
