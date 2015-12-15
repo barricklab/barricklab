@@ -28,6 +28,7 @@ parser.add_argument("-b", "--barricklab", action='store_true', help="files are s
 parser.add_argument("-s", "--sra", action='store_true', help="files are on the NCBI SRA archive")
 parser.add_argument("-o", "--output", default="new_gd_files", help="output directory for .gd files (will be created if it doesn't exist)")
 parser.add_argument("-v", "--verbose", action='store_true', help="increase output")
+parser.add_argument("-i", "--index", action='store_true', help="Index files exist in directory, but should be ignored")
 parser.add_argument("-m", "--meta", help="optional meta data tsv file with headers. 'sample' required, any of the following allowed: 'population', 'time' (meaning generation), 'treatment', 'clone'")
 
 
@@ -84,7 +85,10 @@ if args.meta is not None:
 
 for files in os.listdir(args.fastq):
     if files.endswith(".fastq.gz"):
-        
+        if args.index:
+            if re.search("L00\d_I\d_00\d.fastq.gz", files):
+                continue  # ignore fastq files that are generated from index reads.
+
         sample_name = files 
         sample_name = sample_name.replace(".fastq.gz", "")
         #ditch things like this _L002_R2_001
