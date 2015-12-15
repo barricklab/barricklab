@@ -147,7 +147,6 @@ for files in os.listdir(args.fastq):
 if len(sample_names) > 0:
     print str(len(sample_names)) + " samples lack meta data. " + str(sample_names.keys())
 
-#insert somthing here to warn people what gd files you are going to make
 
 
 if not os.path.exists(args.output):
@@ -161,8 +160,12 @@ if args.barricklab:
     loc_of_ref = loc_of_ref.replace("/corral-repl/utexas/breseq/", "")
     loc_of_reads = loc_of_reads.replace("/corral-repl/utexas/breseq/", "")
 
+
+print "The following files are being written:"  # insert somthing here to warn people what gd files you are going to make
+
 for sample in master_dict:
-    file_name = "%s/%s.gd" % (args.output, sample) 
+    file_name = "%s/%s.gd" % (args.output, sample)
+    print "\t", file_name
     with open(file_name, "a") as output:
         print>>output, "#=GENOME_DIFF 1.0"
         print>>output, "#=AUTHOR\t%s" % args.author
@@ -174,7 +177,8 @@ for sample in master_dict:
         print>>output, "#=REFSEQ\tBarrickLab-Private:%s" % loc_of_ref
 
 for sample in sample_names:
-    file_name = "%s/%s.gd" % (args.output, sample) 
+    file_name = "%s/%s.gd" % (args.output, sample)
+    print "\t", file_name
     with open(file_name, "a") as output:
         print>>output, "#=GENOME_DIFF 1.0"
         print>>output, "#=AUTHOR\t%s" % args.author
