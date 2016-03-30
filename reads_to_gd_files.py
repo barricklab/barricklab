@@ -55,7 +55,7 @@ if not (re.search("^/", args.fastq) and re.search("None|^/", args.reference)):
     print "\n\n!!!!!!!!!!!!!!!WARNING!!!!!!!!!!!!!!!\nPlease specify fastq directory and/or reference file from root."
     sys.exit(1)
 
-allowable_list = ['TIME', 'POPULATION', 'TREATMENT', 'SAMPLE']
+allowable_list = ['TIME', 'POPULATION', 'TREATMENT', 'SAMPLE', 'CLONE']
 meta = {}
 sample_names = {}
 master_dict = {}
@@ -95,16 +95,22 @@ for files in os.listdir(args.fastq):
             if re.search("L00\d_I\d_00\d.fastq.gz", files):
                 continue  # ignore fastq files that are generated from index reads.
 
-        sample_name = files 
-        sample_name = sample_name.replace(".fastq.gz", "")
-        #ditch things like this _L002_R2_001
-        sample_name = re.sub(r'_L\d\d\d_R\d_\d\d\d$', r'', sample_name)
-        sample_name = re.sub(r'^JA\d+_', r'', sample_name)
-        sample_name = re.sub(r'^Sample_', r'', sample_name)
+        sample_name = files
+        if re.search('_S\d+_L\d\d\d_R\d_\d\d\d.fastq.gz$', sample_name):  # @DED 3-30-16 new fastq naming system being used by gsaf
+            sample_name = re.sub(r'_S\d+_L\d\d\d_R\d_\d\d\d.fastq.gz$', r'', sample_name)
+            sample_name = re.sub(r'^JA\d+_', r'', sample_name)  # remove common unnecessary JA IDs
+            sample_name = re.sub(r'^Sample_', r'', sample_name)  # remove common Sample_ from file names
+            print files, "becomes", sample_name
+
+        else:
+            sample_name = sample_name.replace(".fastq.gz", "")
+            # ditch things like this _L002_R2_001 ... @DED 3-30-16 this assumes old gsaf file naming system which had 6 letter bar code prior to lane
+            sample_name = re.sub(r'_L\d\d\d_R\d_\d\d\d$', r'', sample_name)
+            sample_name = re.sub(r'^JA\d+_', r'', sample_name)  # remove common unnecessary JA IDs
+            sample_name = re.sub(r'^Sample_', r'', sample_name)  # remove common Sample_ from file names
+            print sample_name
         
-        print sample_name
-        
-        name_parts = files.split("_")
+        name_parts = sample_name.split("_")
             
         if re.match("[ACTG]{6}", name_parts[1]):
             if name_parts[0] in master_dict:
@@ -120,7 +126,7 @@ for files in os.listdir(args.fastq):
                 sample_names[name_parts[0] + "_" + name_parts[1]].append(files)
             elif name_parts[0] + "_" + name_parts[1] not in sample_names:
                 sample_names[name_parts[0] + "_" + name_parts[1]] = [files]
-        else:
+        else:  # @DED 3-30-16 this is what is catching the new gsaf fastq output names
             if sample_name in master_dict:
                 master_dict[sample_name].append(['READSEQ', files])
             elif sample_name in sample_names:
