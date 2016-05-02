@@ -27,6 +27,7 @@ with open(args.expected, "r") as f:
         line = line.rstrip().split("\t")
         assert len(line) == 2, "more than 2 columns detected %s" % line
         assert len(line[1]) == 2 * args.length, "barcode given (%s) is different than length (%i) of expected barcode" % (line[1], 2 * args.length)
+        line[1] = "A" + line[1]  # this needs more validation
         assert line[1] not in read_dict, "identical barcodes given %s" % line[1]
         read_stats[line[1]] = 0
         if args.combine:
@@ -65,22 +66,22 @@ with open(args.fastq1, "r") as Fastq1, open(args.fastq2, "r") as Fastq2:
         elif line_count % 4 == 3:  # line = optional sequence descriptor. assume line to use 'standard' "+" notation rather than actual descriptor.
             assert line1 == line2 == "+", "line1 or line2 does not display expected '+' sign on line3 here:\nline1: %s\nline2: %s" % (line1, line2)
         elif line_count % 4 == 0:  # line = quality score
-            quality1 = line1
-            quality2 = line2
+            quality1 = line1[args.length + 1:]
+            quality2 = line2[args.length:]
             if args.combine:
                 try:
-                    read_dict[read1[:args.length + 1] + read2[:args.length + 1]].extend([header1, read1[args.length:], "+", quality1, header2, read2[args.length:], "+", quality2])
+                    read_dict[read1[:args.length + 2] + read2[:args.length + 1]].extend([header1, read1[args.length + 1:], "+", quality1, header2, read2[args.length:], "+", quality2])
                 except KeyError:  # barcodes not specified, therefore sore as unknown
                     #  NOTE that the typical "+" symbol on line 3 is changed to what the unidentified barcode was, with first half corresponding to read 1 and second half corresponding to read 2
-                    read_dict["unknown"].extend([header1, read1[args.length:], read1[:args.length + 1] + read2[:args.length + 1], quality1, header2, read2[args.length:], read1[:args.length + 1] + read2[:args.length + 1], quality2])
+                    read_dict["unknown"].extend([header1, read1[args.length + 1:], read1[:args.length + 2] + read2[:args.length + 1], quality1, header2, read2[args.length:], read1[:args.length + 2] + read2[:args.length + 1], quality2])
             else:  # R1 and R2 to be kept separate in final output
                 try:
-                    read_dict[read1[:args.length + 1] + read2[:args.length + 1]]["_R1"].extend([header1, read1[args.length:], "+", quality1])
-                    read_dict[read1[:args.length + 1] + read2[:args.length + 1]]["_R2"].extend([header2, read2[args.length:], "+", quality2])
+                    read_dict[read1[:args.length + 2] + read2[:args.length + 1]]["_R1"].extend([header1, read1[args.length + 1:], "+", quality1])
+                    read_dict[read1[:args.length + 2] + read2[:args.length + 1]]["_R2"].extend([header2, read2[args.length:], "+", quality2])
                 except KeyError:  # barcodes not specified, therefore sore as unknown
                     #  NOTE that the typical "+" symbol on line 3 is changed to what the unidentified barcode was, with first half corresponding to read 1 and second half corresponding to read 2
-                    read_dict["unknown"]["_R1"].extend([header1, read1[args.length:], read1[:args.length + 1] + read2[:args.length + 1], quality1])
-                    read_dict["unknown"]["_R2"].extend([header2, read2[args.length:], read1[:args.length + 1] + read2[:args.length + 1], quality2])
+                    read_dict["unknown"]["_R1"].extend([header1, read1[args.length + 1:], read1[:args.length + 2] + read2[:args.length + 1], quality1])
+                    read_dict["unknown"]["_R2"].extend([header2, read2[args.length:], read1[:args.length + 2] + read2[:args.length + 1], quality2])
         if args.verbose and line_count % 200000 == 0:
             print line_count / 4, "reads processed"
             # break  # Uncomment for testing subset of reads rather than full read list
