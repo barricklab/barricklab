@@ -21,12 +21,14 @@ args = parser.parse_args()
 # Set up read dictionary
 read_dict = defaultdict()
 output_dict = {"unknown": "unknown_barcodes"}
+read_stats = {"unknown": 0}
 with open(args.expected, "r") as f:
     for line in f:
         line = line.rstrip().split("\t")
         assert len(line) == 2, "more than 2 columns detected %s" % line
         assert len(line[1]) == 2 * args.length, "barcode given (%s) is different than length (%i) of expected barcode" % (line[1], 2 * args.length)
         assert line[1] not in read_dict, "identical barcodes given %s" % line[1]
+        read_stats[line[1]] = 0
         if args.combine:
             read_dict[line[1]] = []
         else:
@@ -57,7 +59,7 @@ with open(args.fastq1, "r") as Fastq1, open(args.fastq2, "r") as Fastq2:
             header2 = line2
             assert (header1.split(" ")[0] == header2.split(" ")[0]) and (len(header1.split(" ")) == len(header1.split(" "))) and len(header1.split(" ")) == 2, "Header lines of R1 and R2 do not agree with expectations: single space in header line, and header before space is identical for both reads.\nHeaders:\n%s\n%s" % (header1, header2)  # this may be inaccurate for different illumina outputs
         elif line_count % 4 == 2:  # line = read
-            assert re.match('^[ACTGN]*$', read1) and re.match('^[ACTGN]*$', read2), "Non-sequence characters found on one of th following sequence lines:\n%s\n%s" % (line1, line2)
+            assert re.match('^[ACTGN]*$', line1) and re.match('^[ACTGN]*$', line2), "Non-sequence characters found on one of th following sequence lines:\n%s\n%s" % (line1, line2)
             read1 = line1
             read2 = line2
         elif line_count % 4 == 3:  # line = optional sequence descriptor. assume line to use 'standard' "+" notation rather than actual descriptor.
@@ -82,16 +84,53 @@ with open(args.fastq1, "r") as Fastq1, open(args.fastq2, "r") as Fastq2:
         if args.verbose and line_count % 200000 == 0:
             print line_count / 4, "reads processed"
             # break  # Uncomment for testing subset of reads rather than full read list
+        if line_count % 40000000 == 0:
+            if args.verbose:
+                print "writing 10,000,000 reads"
+            for entry in read_dict:
+                if args.combine:
+                    read_stats[entry] += len(read_dict[entry]) / 4
+                    with open(output_dict[entry] + ".fastq", "w") as output:  # file name availability checked before read read-in
+                        print>>output, "\n".join(map(str, read_dict[entry]))
+                        # print "\t".join(map(str, [output_dict[entry] + ".fastq", len(read_dict[entry]) / 4]))
+                    read_dict[entry] = []  # reset read_dict to only accept new reads
+                else:
+                    for read_dir in read_dict[entry]:
+                        read_stats[entry] += len(read_dict[entry][read_dir]) / 4
+                        with open(output_dict[entry] + read_dir + ".fastq", "w") as output:  # file name availability checked before read read-in
+                            print>>output, "\n".join(map(str, read_dict[entry][read_dir]))
+                            # print "\t".join(map(str, [output_dict[entry] + read_dir + ".fastq", len(read_dict[entry]) / 4]))
+                        read_dict[entry][read_dir] = []
 
-# Write out new Fastq files
-print "Fastq files read in, outputing new fastq files with following statistics:"
+# need final write for <10million reads at end of file
 for entry in read_dict:
     if args.combine:
+        read_stats[entry] += len(read_dict[entry]) / 4
         with open(output_dict[entry] + ".fastq", "w") as output:  # file name availability checked before read read-in
             print>>output, "\n".join(map(str, read_dict[entry]))
-            print "\t".join(map(str, [output_dict[entry] + ".fastq", len(read_dict[entry]) / 4]))
+            # print "\t".join(map(str, [output_dict[entry] + ".fastq", len(read_dict[entry]) / 4]))
+        read_dict[entry] = []  # reset read_dict to only accept new reads
     else:
         for read_dir in read_dict[entry]:
+            read_stats[entry] += len(read_dict[entry][read_dir]) / 4
             with open(output_dict[entry] + read_dir + ".fastq", "w") as output:  # file name availability checked before read read-in
                 print>>output, "\n".join(map(str, read_dict[entry][read_dir]))
-                print "\t".join(map(str, [output_dict[entry] + read_dir + ".fastq", len(read_dict[entry]) / 4]))
+                # print "\t".join(map(str, [output_dict[entry] + read_dir + ".fastq", len(read_dict[entry]) / 4]))
+            read_dict[entry][read_dir] = []
+
+
+# Write out new Fastq files
+print "Fastq file statistics:"
+for entry in read_stats:
+    print entry + ".fastq", "\t", read_stats[entry]
+
+# for entry in read_dict:
+#     if args.combine:
+#         with open(output_dict[entry] + ".fastq", "w") as output:  # file name availability checked before read read-in
+#             print>>output, "\n".join(map(str, read_dict[entry]))
+#             print "\t".join(map(str, [output_dict[entry] + ".fastq", len(read_dict[entry]) / 4]))
+#     else:
+#         for read_dir in read_dict[entry]:
+#             with open(output_dict[entry] + read_dir + ".fastq", "w") as output:  # file name availability checked before read read-in
+#                 print>>output, "\n".join(map(str, read_dict[entry][read_dir]))
+#                 print "\t".join(map(str, [output_dict[entry] + read_dir + ".fastq", len(read_dict[entry]) / 4]))
