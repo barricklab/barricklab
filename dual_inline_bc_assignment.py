@@ -87,7 +87,7 @@ with open(args.fastq1, "r") as Fastq1, open(args.fastq2, "r") as Fastq2:
             # break  # Uncomment for testing subset of reads rather than full read list
         if line_count % 40000000 == 0:
             if args.verbose:
-                print "writing 10,000,000 reads"
+                print "Writing 10,000,000 reads"
             for entry in read_dict:
                 if args.combine:
                     read_stats[entry] += len(read_dict[entry]) / 4
@@ -102,6 +102,7 @@ with open(args.fastq1, "r") as Fastq1, open(args.fastq2, "r") as Fastq2:
                         read_dict[entry][read_dir] = []
 
 # need final write for <10million reads at end of file
+print "Writing remaining reads"
 for entry in read_dict:
     if args.combine:
         read_stats[entry] += len(read_dict[entry]) / 4
