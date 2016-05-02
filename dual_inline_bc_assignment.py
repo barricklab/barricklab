@@ -70,17 +70,16 @@ with open(args.fastq1, "r") as Fastq1, open(args.fastq2, "r") as Fastq2:
             quality2 = line2[args.length:]
             if args.combine:
                 try:
-                    read_dict[read1[:args.length + 2] + read2[:args.length + 1]].extend([header1, read1[args.length + 1:], "+", quality1, header2, read2[args.length:], "+", quality2])
+                    read_dict[read1[:args.length + 1] + read2[:args.length]].extend([header1, read1[args.length + 1:], "+", quality1, header2, read2[args.length:], "+", quality2])
                 except KeyError:  # barcodes not specified, therefore sore as unknown
                     #  NOTE that the typical "+" symbol on line 3 is changed to what the unidentified barcode was, with first half corresponding to read 1 and second half corresponding to read 2
-                    read_dict["unknown"].extend([header1, read1[args.length + 1:], read1[:args.length + 2] + read2[:args.length + 1], quality1, header2, read2[args.length:], read1[:args.length + 2] + read2[:args.length + 1], quality2])
+                    read_dict["unknown"].extend([header1, read1[args.length + 1:], read1[:args.length + 1] + read2[:args.length], quality1, header2, read2[args.length:], read1[:args.length + 1] + read2[:args.length], quality2])
             else:  # R1 and R2 to be kept separate in final output
                 try:
                     read_dict[read1[:args.length + 1] + read2[:args.length]]["_R1"].extend([header1, read1[args.length + 1:], "+", quality1])
                     read_dict[read1[:args.length + 1] + read2[:args.length]]["_R2"].extend([header2, read2[args.length:], "+", quality2])
                 except KeyError:  # barcodes not specified, therefore sore as unknown
                     #  NOTE that the typical "+" symbol on line 3 is changed to what the unidentified barcode was, with first half corresponding to read 1 and second half corresponding to read 2
-                    print read1[:args.length + 1], read2[:args.length]
                     read_dict["unknown"]["_R1"].extend([header1, read1[args.length + 1:], read1[:args.length + 1] + read2[:args.length], quality1])
                     read_dict["unknown"]["_R2"].extend([header2, read2[args.length:], read1[:args.length + 1] + read2[:args.length], quality2])
         if args.verbose and line_count % 200000 == 0:
