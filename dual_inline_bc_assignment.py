@@ -123,7 +123,7 @@ for entry in read_dict:
 # Write out new Fastq files
 print "Fastq file statistics:"
 for entry in read_stats:
-    print entry + ".fastq", "\t", read_stats[entry]
+    print output_dict[entry] + ".fastq", "\t", read_stats[entry]
 
 # for entry in read_dict:
 #     if args.combine:
