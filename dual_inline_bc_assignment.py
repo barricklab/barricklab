@@ -91,32 +91,28 @@ with open(args.fastq1, "r") as Fastq1, open(args.fastq2, "r") as Fastq2:
             for entry in read_dict:
                 if args.combine:
                     read_stats[entry] += len(read_dict[entry]) / 4
-                    with open(output_dict[entry] + ".fastq", "w") as output:  # file name availability checked before read read-in
+                    with open(output_dict[entry] + ".fastq", "a") as output:  # file name availability checked before read read-in
                         print>>output, "\n".join(map(str, read_dict[entry]))
-                        # print "\t".join(map(str, [output_dict[entry] + ".fastq", len(read_dict[entry]) / 4]))
                     read_dict[entry] = []  # reset read_dict to only accept new reads
                 else:
                     for read_dir in read_dict[entry]:
                         read_stats[entry] += len(read_dict[entry][read_dir]) / 4
-                        with open(output_dict[entry] + read_dir + ".fastq", "w") as output:  # file name availability checked before read read-in
+                        with open(output_dict[entry] + read_dir + ".fastq", "a") as output:  # file name availability checked before read read-in
                             print>>output, "\n".join(map(str, read_dict[entry][read_dir]))
-                            # print "\t".join(map(str, [output_dict[entry] + read_dir + ".fastq", len(read_dict[entry]) / 4]))
                         read_dict[entry][read_dir] = []
 
 # need final write for <10million reads at end of file
 for entry in read_dict:
     if args.combine:
         read_stats[entry] += len(read_dict[entry]) / 4
-        with open(output_dict[entry] + ".fastq", "w") as output:  # file name availability checked before read read-in
+        with open(output_dict[entry] + ".fastq", "a") as output:  # file name availability checked before read read-in
             print>>output, "\n".join(map(str, read_dict[entry]))
-            # print "\t".join(map(str, [output_dict[entry] + ".fastq", len(read_dict[entry]) / 4]))
         read_dict[entry] = []  # reset read_dict to only accept new reads
     else:
         for read_dir in read_dict[entry]:
             read_stats[entry] += len(read_dict[entry][read_dir]) / 4
-            with open(output_dict[entry] + read_dir + ".fastq", "w") as output:  # file name availability checked before read read-in
+            with open(output_dict[entry] + read_dir + ".fastq", "a") as output:  # file name availability checked before read read-in
                 print>>output, "\n".join(map(str, read_dict[entry][read_dir]))
-                # print "\t".join(map(str, [output_dict[entry] + read_dir + ".fastq", len(read_dict[entry]) / 4]))
             read_dict[entry][read_dir] = []
 
 
@@ -125,13 +121,8 @@ print "Fastq file statistics:"
 for entry in read_stats:
     print output_dict[entry] + ".fastq", "\t", read_stats[entry]
 
-# for entry in read_dict:
-#     if args.combine:
-#         with open(output_dict[entry] + ".fastq", "w") as output:  # file name availability checked before read read-in
-#             print>>output, "\n".join(map(str, read_dict[entry]))
-#             print "\t".join(map(str, [output_dict[entry] + ".fastq", len(read_dict[entry]) / 4]))
-#     else:
-#         for read_dir in read_dict[entry]:
-#             with open(output_dict[entry] + read_dir + ".fastq", "w") as output:  # file name availability checked before read read-in
-#                 print>>output, "\n".join(map(str, read_dict[entry][read_dir]))
-#                 print "\t".join(map(str, [output_dict[entry] + read_dir + ".fastq", len(read_dict[entry]) / 4]))
+print "5-2-2016"
+print "Based on Brian's tnSeq data, R1 barcode has an additional A as the first base off. Script currently treats this as generalized fact."
+print "If output looks odd (ie 100% of reads going to unk), check this first. Dan and Sean"
+
+
