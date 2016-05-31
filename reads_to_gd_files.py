@@ -111,6 +111,7 @@ for files in os.listdir(args.fastq):
             sample_name = re.sub(r'_L\d\d\d_R\d_\d\d\d$', r'', sample_name)
             sample_name = re.sub(r'^JA\d+_', r'', sample_name)  # remove common unnecessary JA IDs
             sample_name = re.sub(r'^Sample_', r'', sample_name)  # remove common Sample_ from file names
+            sample_name = re.sub(r'_R\d$', r'', sample_name)  # remove common _R1/2 from sample name. common after IBC split
             print sample_name
         
         name_parts = sample_name.split("_")
