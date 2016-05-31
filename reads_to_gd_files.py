@@ -55,6 +55,7 @@ if root_warn.count(None):
     parser.print_help()
     print "\n\n!!!!!!!!!!!!!!!WARNING!!!!!!!!!!!!!!!\nPlease specify fastq directory and/or reference file from root.\n"
     print "\n".join(map(str, [args.fastq] + args.reference))
+    print "^ Should be a '/' mark, please make appropriate changes"
     sys.exit(1)
 
 allowable_list = ['TIME', 'POPULATION', 'TREATMENT', 'SAMPLE', 'CLONE']
@@ -165,7 +166,7 @@ loc_of_reads = args.fastq
 if args.barricklab:
 #    loc_of_ref = loc_of_ref.replace("/home/lab/", "")
 #    loc_of_reads = loc_of_reads.replace("/home/lab", "")
-    loc_of_ref = loc_of_ref.replace("/corral-repl/utexas/breseq/", "")
+    loc_of_ref = [x.replace("/corral-repl/utexas/breseq/", "") for x in loc_of_ref]
     loc_of_reads = loc_of_reads.replace("/corral-repl/utexas/breseq/", "")
 
 
@@ -182,7 +183,8 @@ for sample in master_dict:
                 print>>output, "#=READSEQ\tBarrickLab-Private:%s/%s" % (loc_of_reads, thing[1])
             else:
                 print>>output, "#=%s\t%s" % (thing[0], thing[1])
-        print>>output, "#=REFSEQ\tBarrickLab-Private:%s" % loc_of_ref
+        for ref_loc in loc_of_ref:
+            print>>output, "#=REFSEQ\tBarrickLab-Private:%s" % ref_loc
 
 for sample in sample_names:
     file_name = "%s/%s.gd" % (args.output.rstrip("/"), sample)
@@ -191,10 +193,12 @@ for sample in sample_names:
         print>>output, "#=GENOME_DIFF 1.0"
         print>>output, "#=AUTHOR\t%s" % args.author
         if args.barricklab:
-            print>>output, "#=REFSEQ\tBarrickLab-Private:%s" % loc_of_ref
+            for ref_loc in loc_of_ref:
+                print>>output, "#=REFSEQ\tBarrickLab-Private:%s" % ref_loc
             for entry in sample_names[sample]:
                 print>>output, "#=READSEQ\tBarrickLab-Private:%s/%s" % (loc_of_reads, entry)
         elif args.sra:
-            print>>output, "#=REFSEQ\tBarrickLab-Private:%s" % loc_of_ref  # currently requiring ref to be in private references ... this should be revisited
+            for ref_loc in loc_of_ref:
+                print>>output, "#=REFSEQ\tBarrickLab-Private:%s" % ref_loc  # currently requiring ref to be in private references ... this should be revisited
             for entry in sample_names[sample]:
                 print>>output, "#=READSEQ\tSRA:%s" % entry
