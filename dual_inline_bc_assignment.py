@@ -20,7 +20,7 @@ parser.add_argument("-c", "--combine", help="combine R1 and R2 into a single fas
 parser.add_argument("-v", "--verbose", help="print progress of fastq read in", action='store_true')
 args = parser.parse_args()
 
-assert len(args.r2p) == 0, "sequence provided as read 2 prefix. This is not currently coded as we have no primers which cause this. on expected.tsv file read in, split IBC based on length, insert R2 between 1st and 2nd half. Additional changes to R2 slicing need to be made similar to that of R1 both in dictionary naming and read storing"
+assert len(args.read_2_prefix) == 0, "sequence provided as read 2 prefix. This is not currently coded as we have no primers which cause this. on expected.tsv file read in, split IBC based on length, insert R2 between 1st and 2nd half. Additional changes to R2 slicing need to be made similar to that of R1 both in dictionary naming and read storing"
 
 # Set up read dictionary
 read_dict = defaultdict()
@@ -31,8 +31,8 @@ with open(args.expected, "r") as f:
         line = line.rstrip().split("\t")
         assert len(line) == 2, "more than 2 columns detected %s" % line
         assert len(line[1]) == 2 * args.length, "barcode given (%s) is different than length (%i) of expected barcode" % (line[1], 2 * args.length)
-        if len(args.r1p) > 0:
-            line[1] = args.r1p + line[1]  # add read_1_prefix in front of listed barcode
+        if len(args.read_1_prefix) > 0:
+            line[1] = args.read_1_prefix + line[1]  # add read_1_prefix in front of listed barcode
         assert line[1] not in read_dict, "identical barcodes given %s" % line[1]
         read_stats[line[1]] = 0
         if args.combine:
@@ -71,22 +71,22 @@ with open(args.fastq1, "r") as Fastq1, open(args.fastq2, "r") as Fastq2:
         elif line_count % 4 == 3:  # line = optional sequence descriptor. assume line to use 'standard' "+" notation rather than actual descriptor.
             assert line1 == line2 == "+", "line1 or line2 does not display expected '+' sign on line3 here:\nline1: %s\nline2: %s" % (line1, line2)
         elif line_count % 4 == 0:  # line = quality score
-            quality1 = line1[args.length + len(args.r1p):]
+            quality1 = line1[args.length + len(args.read_1_prefix):]
             quality2 = line2[args.length:]
             if args.combine:
                 try:
-                    read_dict[read1[:args.length + len(args.r1p)] + read2[:args.length]].extend([header1, read1[args.length + len(args.r1p):], "+", quality1, header2, read2[args.length:], "+", quality2])
+                    read_dict[read1[:args.length + len(args.read_1_prefix)] + read2[:args.length]].extend([header1, read1[args.length + len(args.read_1_prefix):], "+", quality1, header2, read2[args.length:], "+", quality2])
                 except KeyError:  # barcodes not specified, therefore sore as unknown
                     #  NOTE that the typical "+" symbol on line 3 is changed to what the unidentified barcode was, with first half corresponding to read 1 and second half corresponding to read 2
-                    read_dict["unknown"].extend([header1, read1[args.length + len(args.r1p):], read1[:args.length + len(args.r1p)] + read2[:args.length], quality1, header2, read2[args.length:], read1[:args.length + len(args.r1p)] + read2[:args.length], quality2])
+                    read_dict["unknown"].extend([header1, read1[args.length + len(args.read_1_prefix):], read1[:args.length + len(args.read_1_prefix)] + read2[:args.length], quality1, header2, read2[args.length:], read1[:args.length + len(args.read_1_prefix)] + read2[:args.length], quality2])
             else:  # R1 and R2 to be kept separate in final output
                 try:
-                    read_dict[read1[:args.length + len(args.r1p)] + read2[:args.length]]["_R1"].extend([header1, read1[args.length + len(args.r1p):], "+", quality1])
-                    read_dict[read1[:args.length + len(args.r1p)] + read2[:args.length]]["_R2"].extend([header2, read2[args.length:], "+", quality2])
+                    read_dict[read1[:args.length + len(args.read_1_prefix)] + read2[:args.length]]["_R1"].extend([header1, read1[args.length + len(args.read_1_prefix):], "+", quality1])
+                    read_dict[read1[:args.length + len(args.read_1_prefix)] + read2[:args.length]]["_R2"].extend([header2, read2[args.length:], "+", quality2])
                 except KeyError:  # barcodes not specified, therefore sore as unknown
                     #  NOTE that the typical "+" symbol on line 3 is changed to what the unidentified barcode was, with first half corresponding to read 1 and second half corresponding to read 2
-                    read_dict["unknown"]["_R1"].extend([header1, read1[args.length + len(args.r1p):], read1[:args.length + len(args.r1p)] + read2[:args.length], quality1])
-                    read_dict["unknown"]["_R2"].extend([header2, read2[args.length:], read1[:args.length + len(args.r1p)] + read2[:args.length], quality2])
+                    read_dict["unknown"]["_R1"].extend([header1, read1[args.length + len(args.read_1_prefix):], read1[:args.length + len(args.read_1_prefix)] + read2[:args.length], quality1])
+                    read_dict["unknown"]["_R2"].extend([header2, read2[args.length:], read1[:args.length + len(args.read_1_prefix)] + read2[:args.length], quality2])
         if args.verbose and line_count % 200000 == 0:
             print line_count / 4, "reads processed"
             # break  # Uncomment for testing subset of reads rather than full read list
@@ -130,6 +130,6 @@ for entry in read_stats:
 # print "5-2-2016"
 # print "Based on Brian's tnSeq data, R1 barcode has an additional A as the first base off. Script currently treats this as generalized fact."
 # print "If output looks odd (ie 100% of reads going to unk), check this first. Dan and Sean"
-# above removed 5-31-2016 based on Dacia's data. For Brian's Data, script now requires -r1p "A" for brian's transposon library
+# above removed 5-31-2016 based on Dacia's data. For Brian's Data, script now requires -read_1_prefix "A" for brian's transposon library
 
 
