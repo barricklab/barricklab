@@ -10,13 +10,17 @@ import argparse
 from collections import defaultdict
 
 parser = argparse.ArgumentParser(description="Read paired end fastq files in, assign reads to different files based on barcodes")
-parser.add_argument("-l", "--length", default=7, help="length of internal barcodes", type=int)
+parser.add_argument("-l", "--length", default=6, help="length of internal barcodes", type=int)
 parser.add_argument("-f1", "--fastq1", help="fastq read1 file to check")
 parser.add_argument("-f2", "--fastq2", help="fastq read2 file to check")
 parser.add_argument("-e", "--expected", help="2 column tsv file, no headers of output file name, and expected barcode sequence. Barcode sequence should be R1R2 no spaces or punctuation.")
+parser.add_argument("-r1p", "--read_1_prefix", help="expected sequence in front of IBC on read 1")
+parser.add_argument("-r2p", "--read_2_prefix", help="expected sequence in front of IBC on read 2")
 parser.add_argument("-c", "--combine", help="combine R1 and R2 into a single fastq output file", default=False, action='store_true')
 parser.add_argument("-v", "--verbose", help="print progress of fastq read in", action='store_true')
 args = parser.parse_args()
+
+assert len(args.r2p) == 0, "sequence provided as read 2 prefix. This is not currently coded as we have no primers which cause this. on expected.tsv file read in, split IBC based on length, insert R2 between 1st and 2nd half. Additional changes to R2 slicing need to be made similar to that of R1 both in dictionary naming and read storing"
 
 # Set up read dictionary
 read_dict = defaultdict()
@@ -27,7 +31,8 @@ with open(args.expected, "r") as f:
         line = line.rstrip().split("\t")
         assert len(line) == 2, "more than 2 columns detected %s" % line
         assert len(line[1]) == 2 * args.length, "barcode given (%s) is different than length (%i) of expected barcode" % (line[1], 2 * args.length)
-        line[1] = "A" + line[1]  # this needs more validation
+        if len(args.r1p) > 0:
+            line[1] = args.r1p + line[1]  # add read_1_prefix in front of listed barcode
         assert line[1] not in read_dict, "identical barcodes given %s" % line[1]
         read_stats[line[1]] = 0
         if args.combine:
@@ -66,22 +71,22 @@ with open(args.fastq1, "r") as Fastq1, open(args.fastq2, "r") as Fastq2:
         elif line_count % 4 == 3:  # line = optional sequence descriptor. assume line to use 'standard' "+" notation rather than actual descriptor.
             assert line1 == line2 == "+", "line1 or line2 does not display expected '+' sign on line3 here:\nline1: %s\nline2: %s" % (line1, line2)
         elif line_count % 4 == 0:  # line = quality score
-            quality1 = line1[args.length + 1:]
+            quality1 = line1[args.length + len(args.r1p):]
             quality2 = line2[args.length:]
             if args.combine:
                 try:
-                    read_dict[read1[:args.length + 1] + read2[:args.length]].extend([header1, read1[args.length + 1:], "+", quality1, header2, read2[args.length:], "+", quality2])
+                    read_dict[read1[:args.length + len(args.r1p)] + read2[:args.length]].extend([header1, read1[args.length + len(args.r1p):], "+", quality1, header2, read2[args.length:], "+", quality2])
                 except KeyError:  # barcodes not specified, therefore sore as unknown
                     #  NOTE that the typical "+" symbol on line 3 is changed to what the unidentified barcode was, with first half corresponding to read 1 and second half corresponding to read 2
-                    read_dict["unknown"].extend([header1, read1[args.length + 1:], read1[:args.length + 1] + read2[:args.length], quality1, header2, read2[args.length:], read1[:args.length + 1] + read2[:args.length], quality2])
+                    read_dict["unknown"].extend([header1, read1[args.length + len(args.r1p):], read1[:args.length + len(args.r1p)] + read2[:args.length], quality1, header2, read2[args.length:], read1[:args.length + len(args.r1p)] + read2[:args.length], quality2])
             else:  # R1 and R2 to be kept separate in final output
                 try:
-                    read_dict[read1[:args.length + 1] + read2[:args.length]]["_R1"].extend([header1, read1[args.length + 1:], "+", quality1])
-                    read_dict[read1[:args.length + 1] + read2[:args.length]]["_R2"].extend([header2, read2[args.length:], "+", quality2])
+                    read_dict[read1[:args.length + len(args.r1p)] + read2[:args.length]]["_R1"].extend([header1, read1[args.length + len(args.r1p):], "+", quality1])
+                    read_dict[read1[:args.length + len(args.r1p)] + read2[:args.length]]["_R2"].extend([header2, read2[args.length:], "+", quality2])
                 except KeyError:  # barcodes not specified, therefore sore as unknown
                     #  NOTE that the typical "+" symbol on line 3 is changed to what the unidentified barcode was, with first half corresponding to read 1 and second half corresponding to read 2
-                    read_dict["unknown"]["_R1"].extend([header1, read1[args.length + 1:], read1[:args.length + 1] + read2[:args.length], quality1])
-                    read_dict["unknown"]["_R2"].extend([header2, read2[args.length:], read1[:args.length + 1] + read2[:args.length], quality2])
+                    read_dict["unknown"]["_R1"].extend([header1, read1[args.length + len(args.r1p):], read1[:args.length + len(args.r1p)] + read2[:args.length], quality1])
+                    read_dict["unknown"]["_R2"].extend([header2, read2[args.length:], read1[:args.length + len(args.r1p)] + read2[:args.length], quality2])
         if args.verbose and line_count % 200000 == 0:
             print line_count / 4, "reads processed"
             # break  # Uncomment for testing subset of reads rather than full read list
@@ -122,8 +127,9 @@ print "Fastq file statistics:"
 for entry in read_stats:
     print output_dict[entry] + ".fastq", "\t", read_stats[entry]
 
-print "5-2-2016"
-print "Based on Brian's tnSeq data, R1 barcode has an additional A as the first base off. Script currently treats this as generalized fact."
-print "If output looks odd (ie 100% of reads going to unk), check this first. Dan and Sean"
+# print "5-2-2016"
+# print "Based on Brian's tnSeq data, R1 barcode has an additional A as the first base off. Script currently treats this as generalized fact."
+# print "If output looks odd (ie 100% of reads going to unk), check this first. Dan and Sean"
+# above removed 5-31-2016 based on Dacia's data. For Brian's Data, script now requires -r1p "A" for brian's transposon library
 
 
