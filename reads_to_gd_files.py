@@ -24,7 +24,7 @@ parser = argparse.ArgumentParser(description="read in .fastq.gz file names, gene
 parser.add_argument("-a", "--author", help="Your name.")
 parser.add_argument("-f", "--fastq", help="Absolute path to directory containing gzipped read files. Example: /corral-repl/utexas/breseq/genomes/utexas_gsaf/Project_###", required=True)
 parser.add_argument("-i", "--index", action='store_true', help="Index files exist in fastq directory, but should be ignored.")
-parser.add_argument("-r", "--reference", help="Absolute location and name of reference file. Example: /corral-repl/utexas/breseq/genomes/reference/REL606.6.gbk", default="None")
+parser.add_argument("-r", "--reference", nargs='*', help="Absolute location and name of reference file. Example: /corral-repl/utexas/breseq/genomes/reference/REL606.6.gbk", default="None")
 parser.add_argument("-b", "--barricklab", action='store_true', help="Files are stored in barricklab location on corral.")
 parser.add_argument("-s", "--sra", action='store_true', help="Files are on the NCBI SRA archive.")
 parser.add_argument("-o", "--output", default="new_gd_files", help="Output directory for .gd files (will be created if it doesn't exist).")
@@ -32,7 +32,7 @@ parser.add_argument("-v", "--verbose", action='store_true', help="Increase outpu
 parser.add_argument("-m", "--meta", help="Optional meta data tsv file with headers. 'sample' required, any of the following allowed: 'population', 'time' (meaning generation), 'treatment', 'clone'")
 
 
-#show help if no arguments passed
+# show help if no arguments passed
 if len(sys.argv) < 2:
     parser.print_help()
     sys.exit(1)
@@ -50,9 +50,11 @@ if args.barricklab is not False and args.sra is not False:
     sys.exit(1)
 
 # Check that absolute paths for fastq and reference files are used.
-if not (re.search("^/", args.fastq) and re.search("None|^/", args.reference)):
+root_warn = [re.search("^/", args.fastq)] + [re.search("None|^/", ref_warn_check) for ref_warn_check in args.reference]
+if root_warn.count(None):
     parser.print_help()
-    print "\n\n!!!!!!!!!!!!!!!WARNING!!!!!!!!!!!!!!!\nPlease specify fastq directory and/or reference file from root."
+    print "\n\n!!!!!!!!!!!!!!!WARNING!!!!!!!!!!!!!!!\nPlease specify fastq directory and/or reference file from root.\n"
+    print "\n".join(map(str, [args.fastq] + args.reference))
     sys.exit(1)
 
 allowable_list = ['TIME', 'POPULATION', 'TREATMENT', 'SAMPLE', 'CLONE']
