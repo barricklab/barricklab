@@ -114,22 +114,30 @@ for files in os.listdir(args.fastq):
             print sample_name
         
         name_parts = sample_name.split("_")
-            
-        if re.match("[ACTG]{6}", name_parts[1]):
-            if name_parts[0] in master_dict:
-                master_dict[name_parts[0]].append(['READSEQ', files])
-            elif name_parts[0] in sample_names:
-                sample_names[name_parts[0]].append(files)
-            elif name_parts[0] not in sample_names:
-                sample_names[name_parts[0]] = [files]
-        elif re.match("[ACTG]{6}", name_parts[2]):  # allows for 1 underscore character in name system
-            if name_parts[0] + "_" + name_parts[1] in master_dict:
-                master_dict[name_parts[0] + "_" + name_parts[1]].append(['READSEQ', files])
-            elif name_parts[0] + "_" + name_parts[1] in sample_names:
-                sample_names[name_parts[0] + "_" + name_parts[1]].append(files)
-            elif name_parts[0] + "_" + name_parts[1] not in sample_names:
-                sample_names[name_parts[0] + "_" + name_parts[1]] = [files]
-        else:  # @DED 3-30-16 this is what is catching the new gsaf fastq output names
+
+        try:
+            if re.match("[ACTG]{6}", name_parts[1]):
+                if name_parts[0] in master_dict:
+                    master_dict[name_parts[0]].append(['READSEQ', files])
+                elif name_parts[0] in sample_names:
+                    sample_names[name_parts[0]].append(files)
+                elif name_parts[0] not in sample_names:
+                    sample_names[name_parts[0]] = [files]
+            elif re.match("[ACTG]{6}", name_parts[2]):  # allows for 1 underscore character in name system
+                if name_parts[0] + "_" + name_parts[1] in master_dict:
+                    master_dict[name_parts[0] + "_" + name_parts[1]].append(['READSEQ', files])
+                elif name_parts[0] + "_" + name_parts[1] in sample_names:
+                    sample_names[name_parts[0] + "_" + name_parts[1]].append(files)
+                elif name_parts[0] + "_" + name_parts[1] not in sample_names:
+                    sample_names[name_parts[0] + "_" + name_parts[1]] = [files]
+            else:  # @DED 3-30-16 this is what is catching the new gsaf fastq output names
+                if sample_name in master_dict:
+                    master_dict[sample_name].append(['READSEQ', files])
+                elif sample_name in sample_names:
+                    sample_names[sample_name].append(files)
+                elif sample_name not in sample_names:
+                    sample_names[sample_name] = [files]
+        except IndexError:
             if sample_name in master_dict:
                 master_dict[sample_name].append(['READSEQ', files])
             elif sample_name in sample_names:
