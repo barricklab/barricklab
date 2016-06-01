@@ -80,15 +80,15 @@ with open(args.fastq1, "r") as Fastq1, open(args.fastq2, "r") as Fastq2:
                     read_dict[bc].extend([header1, read1, "+", quality1, header2, read2, "+", quality2])
                 except KeyError:  # barcodes not specified, therefore sore as unknown
                     #  NOTE that the typical "+" symbol on line 3 is changed to what the unidentified barcode was, with first half corresponding to read 1 and second half corresponding to read 2
-                    read_dict["unknown"].extend([header1, read1, bc, quality1, header2, read2, bc, quality2])
+                    read_dict["unknown"].extend([header1, read1, "+" + bc, quality1, header2, read2, bc, quality2])
             else:  # R1 and R2 to be kept separate in final output
                 try:
                     read_dict[bc]["_R1"].extend([header1, read1, "+", quality1])
                     read_dict[bc]["_R2"].extend([header2, read2, "+", quality2])
                 except KeyError:  # barcodes not specified, therefore sore as unknown
                     #  NOTE that the typical "+" symbol on line 3 is changed to what the unidentified barcode was, with first half corresponding to read 1 and second half corresponding to read 2
-                    read_dict["unknown"]["_R1"].extend([header1, read1, bc, quality1])
-                    read_dict["unknown"]["_R2"].extend([header2, read2, bc, quality2])
+                    read_dict["unknown"]["_R1"].extend([header1, read1, "+" + bc, quality1])
+                    read_dict["unknown"]["_R2"].extend([header2, read2, "+" + bc, quality2])
         if args.verbose and line_count % 200000 == 0:
             print line_count / 4, "reads processed"
             # break  # Uncomment for testing subset of reads rather than full read list
