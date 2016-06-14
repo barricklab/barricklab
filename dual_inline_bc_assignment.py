@@ -121,7 +121,7 @@ with open(args.fastq1, "r") as Fastq1, open(args.fastq2, "r") as Fastq2:
 
 # need final write for <10million reads at end of file
 if line_count < 40000000:
-    print "Writing all %i reads" % line_count / 4
+    print "Writing all %i reads" % (line_count / 4)
 else:
     print "Writing remaining %i reads" % (line_count % 40000000) / 4
 for entry in read_dict:
