@@ -123,7 +123,7 @@ with open(args.fastq1, "r") as Fastq1, open(args.fastq2, "r") as Fastq2:
 if line_count < 40000000:
     print "Writing all %i reads" % (line_count / 4)
 else:
-    print "Writing remaining %i reads" % (line_count % 40000000) / 4
+    print "Writing remaining %i reads" % ((line_count % 40000000) / 4)
 for entry in read_dict:
     if args.combine:
         read_stats[entry][0] += len(read_dict[entry]) / 4  # 0 because these are prefect matches
@@ -254,9 +254,9 @@ if not args.perfect:  # mismatches allowed, therefore try to assign reads in the
 
     # need final write for <10million unknown reads at end of file
     if line_count < 40000000:
-        print "Writing all %i unknown reads" % line_count / 4
+        print "Writing all %i unknown reads" % (line_count / 4)
     else:
-        print "Writing remaining %i unknown reads" % (line_count % 40000000) / 4
+        print "Writing remaining %i unknown reads" % ((line_count % 40000000) / 4)
     for entry in read_dict:
         if entry is not "unknown":
             for read_dir in read_dict[entry]:
