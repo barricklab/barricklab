@@ -186,7 +186,7 @@ if not args.perfect:  # mismatches allowed, therefore try to assign reads in the
     mismatch_dict = {}
     for unknown_barcode in unknown_barcodes:
         best = float("inf")
-        for bc in [x for x in read_dict.keys if x is not "unknown"]:
+        for bc in [x for x in read_dict.keys() if x is not "unknown"]:
             distance = levenshtein(unknown_barcode, bc)
             if distance < best:
                 best = distance
