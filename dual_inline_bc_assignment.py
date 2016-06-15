@@ -187,7 +187,7 @@ for entry in read_dict:
 # Write out new Fastq file statistics
 log("Fastq file statistics for reads with perfect matches:", True)
 for entry in [x for x in read_stats if x is not "unknown"] + ["unknown"]:
-    log(output_dict[entry] + ".fastq" + "\t" + read_stats[entry][0], True)  # 0 because only perfect matches have been and will be stored
+    log(output_dict[entry] + ".fastq" + "\t" + str(read_stats[entry][0]), True)  # 0 because only perfect matches have been and will be stored
 
 if not args.perfect:  # mismatches allowed, therefore try to assign reads in the "unknown" group to barcode
     log("\nAttempting assignment of %i unknown barcodes with mistmatches." % read_stats["unknown"][0], True)
