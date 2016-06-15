@@ -9,6 +9,7 @@ import os
 import argparse
 from collections import defaultdict
 import itertools
+import datetime
 
 # block of improvements to be made:
 # TODO: output unknown.fastq changed to reference what the source material was or allow specific name in expected file
@@ -25,9 +26,27 @@ parser.add_argument("-o", "--offset", help="length of bases to ignore on R1 and 
 parser.add_argument("-c", "--combine", help="combine R1 and R2 into a single fastq output file", default=False, action='store_true')
 parser.add_argument("-v", "--verbose", help="print progress of fastq read in", action='store_true')
 parser.add_argument("-p", "--perfect", help="allow assignment of reads to barcodes, only if perfect match", action='store_true')
+parser.add_argument("--log", help="Log file for read statistics, will not catch verbose output", default="barcode_assignment.log.txt")
 args = parser.parse_args()
 
 assert len(args.read_2_prefix) == 0, "sequence provided as read 2 prefix. This is not currently coded as we have no primers which cause this. on expected.tsv file read in, split IBC based on length, insert R2 between 1st and 2nd half. Additional changes to R2 slicing need to be made similar to that of R1 both in dictionary naming and read storing"
+
+
+def log(string_to_print, stdout_also=False):
+    """
+    print information to log file
+    :param string_to_print: what to print
+    :param stdout_also: also print output to std out
+    :return:
+    """
+    with open(args.log, "a+") as log_output:
+        print>>log_output, string_to_print
+    if stdout_also:
+        print string_to_print
+
+
+log("\nScript executed at: " + str(datetime.datetime.now()) + "\nWith the following command line options:")
+log("\t" + "\n\t".join(map(str, [str(arg) + "\t" + str(getattr(args, arg)) for arg in vars(args)])))  # log all input options except score function
 
 # Set up read dictionary
 read_dict = {}
@@ -120,10 +139,11 @@ with open(args.fastq1, "r") as Fastq1, open(args.fastq2, "r") as Fastq2:
                         read_dict[entry][read_dir] = []  # reset read_dict to only accept new reads
 
 # need final write for <10million reads at end of file
-if line_count < 40000000:
-    print "Writing all %i read pairs" % (line_count / 4)
-else:
-    print "Writing remaining %i read pairss" % ((line_count % 40000000) / 4)
+if args.verbose:
+    if line_count < 40000000:
+        print "Writing all %i read pairs" % (line_count / 4)
+    else:
+        print "Writing remaining %i read pairs" % ((line_count % 40000000) / 4)
 for entry in read_dict:
     if args.combine:
         read_stats[entry][0] += len(read_dict[entry]) / 4  # 0 because these are prefect matches
@@ -138,13 +158,13 @@ for entry in read_dict:
             read_dict[entry][read_dir] = []  # reset read_dict to only accept new reads (important if mismatches to be allowed)
 
 # Write out new Fastq file statistics
-print "Fastq file statistics for reads with perfect matches:"
+log("Fastq file statistics for reads with perfect matches:", True)
 for entry in [x for x in read_stats if x is not "unknown"] + ["unknown"]:
-    print output_dict[entry] + ".fastq", "\t", read_stats[entry][0]  # 0 because only perfect matches have been and will be stored
+    log((output_dict[entry] + ".fastq", "\t", read_stats[entry][0]), True)  # 0 because only perfect matches have been and will be stored
 
 if not args.perfect:  # mismatches allowed, therefore try to assign reads in the "unknown" group to barcode
 
-    print "\nAttempting assignment of %i unknown barcodes with mistmatches." % read_stats["unknown"][0]
+    log("\nAttempting assignment of %i unknown barcodes with mistmatches." % read_stats["unknown"][0], True)
 
     # Distances to be calculated using Levenshtein Distance rather than hamming distance to allow for indels.
     def levenshtein(s1, s2):
@@ -177,7 +197,7 @@ if not args.perfect:  # mismatches allowed, therefore try to assign reads in the
         barcode_distances.append(levenshtein(pair[0], pair[1]))
     distance_tolerated = (min(barcode_distances) / 2.0) - 1  # observed BC must be more than twice as close to 1 barcode as any other
     assert distance_tolerated >= 1, "distance tollerated <1, therefore, no mutations are allowed ... reads "
-    print "All barcodes are at least %i mutations away from one another. Therefore an unknown barcode must be within %i mutations of a known barcode to be assigned. Ties are not possible" % (min(barcode_distances), distance_tolerated)
+    log("All barcodes are at least %i mutations away from one another. Therefore an unknown barcode must be within %i mutations of a known barcode to be assigned. Ties are not possible" % (min(barcode_distances), distance_tolerated), True)
 
     # group unknown barcodes with known barcodes if they within given distance
     mismatch_dict = {}
@@ -266,7 +286,7 @@ if not args.perfect:  # mismatches allowed, therefore try to assign reads in the
                 read_dict["unknown"][read_dir] = []  # reset read_dict to only accept new reads should be irrelevant
 
     all_distances = sorted(list(set((itertools.chain.from_iterable([read_stats[x].keys() for x in read_stats])))))  # generate list of all "best" distances detected
-    print "\t".join(map(str, ["Sample/Distance"] + all_distances))
+    log("\t".join(map(str, ["Sample/Distance"] + all_distances)), True)
     for bc in [x for x in read_stats if x is not "unknown"] + ["unknown"]:
         to_print = [bc]
         for dist in all_distances:
@@ -274,7 +294,7 @@ if not args.perfect:  # mismatches allowed, therefore try to assign reads in the
                 to_print.append(read_stats[bc][dist])
             except KeyError:
                 to_print.append(0)
-        print "\t".join(map(str, to_print))
+        log("\t".join(map(str, to_print)), True)
     # to_print = ["unknown"]
     # for dist in all_distances:
     #     try:
@@ -284,7 +304,7 @@ if not args.perfect:  # mismatches allowed, therefore try to assign reads in the
     # print "\t".join(map(str, to_print))
 
 
-print "Script Completed Successfully"
+log("Script Completed Successfully", True)
 
 # print "5-2-2016"
 # print "Based on Brian's tnSeq data, R1 barcode has an additional A as the first base off. Script currently treats this as generalized fact."
