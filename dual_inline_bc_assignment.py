@@ -176,7 +176,7 @@ if not args.perfect:  # mismatches allowed, therefore try to assign reads in the
 
     # Determine distance barcodes are from each other
     barcode_distances = []
-    for pair in itertools.combinations([x for x in read_dict.keys if x is not "unknown"], 2):
+    for pair in itertools.combinations([x for x in read_dict.keys() if x is not "unknown"], 2):
         barcode_distances.append(levenshtein(pair[0], pair[1]))
     distance_tolerated = (min(barcode_distances) / 2.0) - 1  # observed BC must be more than twice as close to 1 barcode as any other
     assert distance_tolerated >= 1, "distance tollerated <1, therefore, no mutations are allowed ... reads "
