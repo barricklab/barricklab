@@ -284,6 +284,7 @@ if not args.perfect:  # mismatches allowed, therefore try to assign reads in the
                 to_print.append(0)
         print "\t".join(map(str, to_print))
     for dist in all_distances:
+        to_print = ["unknown"]
         try:
             to_print.append(read_stats["unknown"][dist])
         except KeyError:
