@@ -90,7 +90,7 @@ with open(args.fastq1, "r") as Fastq1, open(args.fastq2, "r") as Fastq2:
                 except KeyError:  # barcodes not identified, therefore sore as unknown
                     #  NOTE that the typical "+" symbol on line 3 is changed to what the unidentified barcode was, with first half corresponding to read 1 and second half corresponding to read 2
                     read_dict["unknown"].extend([header1, read1, "+" + bc, quality1, header2, read2, bc, quality2])
-                    unknown_barcodes[bc] += 1  # keep track of what barcodes are seen and how many times
+                    unknown_barcodes[bc] += 2  # keep track of how many READS have the barcode, because bc is based on paired reads is 2 not 1
             else:  # R1 and R2 to be kept separate in final output
                 try:
                     read_dict[bc]["_R1"].extend([header1, read1, "+", quality1])
@@ -99,7 +99,7 @@ with open(args.fastq1, "r") as Fastq1, open(args.fastq2, "r") as Fastq2:
                     #  NOTE that the typical "+" symbol on line 3 is changed to what the unidentified barcode was, with first half corresponding to read 1 and second half corresponding to read 2
                     read_dict["unknown"]["_R1"].extend([header1, read1, "+" + bc, quality1])
                     read_dict["unknown"]["_R2"].extend([header2, read2, "+" + bc, quality2])
-                    unknown_barcodes[bc] += 1  # keep track of what barcodes are seen and how many times
+                    unknown_barcodes[bc] += 2  # keep track of how many READS have the barcode, because bc is based on paired reads is 2 not 1
         if args.verbose and line_count % 200000 == 0:
             print line_count / 4, "reads processed"
             # break  # Uncomment for testing subset of reads rather than full read list
@@ -274,8 +274,8 @@ if not args.perfect:  # mismatches allowed, therefore try to assign reads in the
     # print all_distances
     # all_distances = all_distances.sort()  # if sort included with above, returns no values
     # print all_distances
-    print "\t".join(map(str, ['Sample/Distance'] + all_distances))
-    for bc in read_stats:
+    print "\t".join(map(str, ["Sample/Distance"] + all_distances))
+    for bc in [x for x in read_stats if x is not "unknown"]:
         to_print = [bc]
         for dist in all_distances:
             try:
@@ -283,9 +283,15 @@ if not args.perfect:  # mismatches allowed, therefore try to assign reads in the
             except KeyError:
                 to_print.append(0)
         print "\t".join(map(str, to_print))
+    for dist in all_distances:
+        try:
+            to_print.append(read_stats["unknown"][dist])
+        except KeyError:
+            to_print.append(0)
+    print "\t".join(map(str, to_print))
 
 
-print "Script Completed Sucessfully"
+print "Script Completed Successfully"
 
 # print "5-2-2016"
 # print "Based on Brian's tnSeq data, R1 barcode has an additional A as the first base off. Script currently treats this as generalized fact."
