@@ -101,11 +101,11 @@ with open(args.fastq1, "r") as Fastq1, open(args.fastq2, "r") as Fastq2:
                     read_dict["unknown"]["_R2"].extend([header2, read2, "+" + bc, quality2])
                     unknown_barcodes[bc] += 2  # keep track of how many READS have the barcode, because bc is based on paired reads is 2 not 1
         if args.verbose and line_count % 200000 == 0:
-            print line_count / 4, "reads processed"
+            print line_count / 4, "read pairss processed"
             # break  # Uncomment for testing subset of reads rather than full read list
         if line_count % 40000000 == 0:
             if args.verbose:
-                print "Writing 10,000,000 reads"
+                print "Writing 10,000,000 read pairs"
             for entry in read_dict:
                 if args.combine:
                     read_stats[entry][0] += len(read_dict[entry]) / 4  # 0 because these are prefect matches
@@ -121,9 +121,9 @@ with open(args.fastq1, "r") as Fastq1, open(args.fastq2, "r") as Fastq2:
 
 # need final write for <10million reads at end of file
 if line_count < 40000000:
-    print "Writing all %i reads" % (line_count / 4)
+    print "Writing all %i read pairs" % (line_count / 4)
 else:
-    print "Writing remaining %i reads" % ((line_count % 40000000) / 4)
+    print "Writing remaining %i read pairss" % ((line_count % 40000000) / 4)
 for entry in read_dict:
     if args.combine:
         read_stats[entry][0] += len(read_dict[entry]) / 4  # 0 because these are prefect matches
@@ -233,16 +233,15 @@ if not args.perfect:  # mismatches allowed, therefore try to assign reads in the
                         read_dict["unknown"]["_R1"].extend([header1, read1, "+" + bc, quality1])
                         read_dict["unknown"]["_R2"].extend([header2, read2, "+" + bc, quality2])
                 if args.verbose and line_count % 200000 == 0:
-                    print line_count / 4, "unknown reads processed"
+                    print line_count / 4, "unknown read pairss processed"
                     # break  # Uncomment for testing subset of reads rather than full read list
 
                 if line_count % 40000000 == 0:
                     if args.verbose:
-                        print "Writing 10,000,000 unknown reads"
+                        print "Writing 10,000,000 unknown read pairs"
                     for entry in read_dict:
                         if entry is not "unknown":
                             for read_dir in read_dict[entry]:
-                                # TODO stats on new assignments #read_stats[entry] += len(read_dict[entry][read_dir]) / 4
                                 with open(output_dict[entry] + read_dir + ".fastq", "a") as output:  # file name availability checked before read read-in
                                     print>>output, "\n".join(map(str, read_dict[entry][read_dir]))
                                 read_dict[entry][read_dir] = []  # reset read_dict to only accept new reads
@@ -254,13 +253,12 @@ if not args.perfect:  # mismatches allowed, therefore try to assign reads in the
 
     # need final write for <10million unknown reads at end of file
     if line_count < 40000000:
-        print "Writing all %i unknown reads" % (line_count / 4)
+        print "Writing all %i unknown read pairs" % (line_count / 4)
     else:
-        print "Writing remaining %i unknown reads" % ((line_count % 40000000) / 4)
+        print "Writing remaining %i unknown read pairs" % ((line_count % 40000000) / 4)
     for entry in read_dict:
         if entry is not "unknown":
             for read_dir in read_dict[entry]:
-                # TODO stats on new assignments #read_stats[entry] += len(read_dict[entry][read_dir]) / 4
                 with open(output_dict[entry] + read_dir + ".fastq", "a") as output:  # file name availability checked before read read-in
                     print>>output, "\n".join(map(str, read_dict[entry][read_dir]))
                 read_dict[entry][read_dir] = []  # reset read_dict to only accept new reads should be irrelevant
@@ -271,11 +269,8 @@ if not args.perfect:  # mismatches allowed, therefore try to assign reads in the
                 read_dict["unknown"][read_dir] = []  # reset read_dict to only accept new reads should be irrelevant
 
     all_distances = sorted(list(set((itertools.chain.from_iterable([read_stats[x].keys() for x in read_stats])))))  # generate list of all "best" distances detected
-    # print all_distances
-    # all_distances = all_distances.sort()  # if sort included with above, returns no values
-    # print all_distances
     print "\t".join(map(str, ["Sample/Distance"] + all_distances))
-    for bc in [x for x in read_stats if x is not "unknown"]:
+    for bc in [x for x in read_stats if x is not "unknown"] + ["unknown"]:
         to_print = [bc]
         for dist in all_distances:
             try:
@@ -283,13 +278,13 @@ if not args.perfect:  # mismatches allowed, therefore try to assign reads in the
             except KeyError:
                 to_print.append(0)
         print "\t".join(map(str, to_print))
-    for dist in all_distances:
-        to_print = ["unknown"]
-        try:
-            to_print.append(read_stats["unknown"][dist])
-        except KeyError:
-            to_print.append(0)
-    print "\t".join(map(str, to_print))
+    # to_print = ["unknown"]
+    # for dist in all_distances:
+    #     try:
+    #         to_print.append(read_stats["unknown"][dist])
+    #     except KeyError:
+    #         to_print.append(0)
+    # print "\t".join(map(str, to_print))
 
 
 print "Script Completed Successfully"
