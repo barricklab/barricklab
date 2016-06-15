@@ -220,7 +220,7 @@ if not args.perfect:  # mismatches allowed, therefore try to assign reads in the
                     read1 = line1
                     read2 = line2
                 elif line_count % 4 == 3:  # line = bc
-                    assert line1 == line2 and line1.startswith("+") and len(line1) == (args.length * 2 + len(args.read_1_prefix)), "line 3 expected to be same for both reads, expected to start with + and barcode region/length.\nRead1:\t%s\nRead2:\t%s\nLine:\t%s" % (line1, line2, line_count)
+                    assert line1 == line2 and line1.startswith("+") and len(line1.lstrip("+")) == (args.length * 2 + len(args.read_1_prefix)), "line 3 expected to be same for both reads, expected to start with + and barcode region/length.\nRead1:\t%s\nRead2:\t%s\nLine:\t%s" % (line1, line2, line_count)
                     bc = line1.lstrip("+")
                 elif line_count % 4 == 0:  # line = quality score
                     quality1 = line1
