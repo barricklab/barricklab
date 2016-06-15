@@ -198,7 +198,7 @@ if not args.perfect:  # mismatches allowed, therefore try to assign reads in the
             read_stats["unknown"][distance] += unknown_barcodes[unknown_barcode]  # add number of reads observed with this barcode
             continue
         assert isinstance(mismatch_dict[unknown_barcode], str), "Barcode tied with a distance tolerated for assignment!\nunknown barcode:\t%s\nmatches:\t%s\ndistance:\t%i" % (unknown_barcode, mismatch_dict[unknown_barcode], best)
-        read_stats[mismatch_dict[unknown_barcodes[unknown_barcode]]][best] += unknown_barcodes[unknown_barcode]  # add number of reads observed with this barcode based on distance
+        read_stats[mismatch_dict[unknown_barcode]][best] += unknown_barcodes[unknown_barcode]  # add number of reads observed with this barcode based on distance
 
     # Read unknown barcode.fastq files in.
     if args.combine:
