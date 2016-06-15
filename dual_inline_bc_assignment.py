@@ -270,10 +270,10 @@ if not args.perfect:  # mismatches allowed, therefore try to assign reads in the
                     print>>output, "\n".join(map(str, read_dict[entry][read_dir]))
                 read_dict["unknown"][read_dir] = []  # reset read_dict to only accept new reads should be irrelevant
 
-    all_distances = list(set((itertools.chain.from_iterable([read_stats[x].keys() for x in read_stats]))))  # generate list of all "best" distances detected
-    print all_distances
-    all_distances = all_distances.sort()  # if sort included with above, returns no values
-    print all_distances
+    all_distances = sorted(list(set((itertools.chain.from_iterable([read_stats[x].keys() for x in read_stats])))))  # generate list of all "best" distances detected
+    # print all_distances
+    # all_distances = all_distances.sort()  # if sort included with above, returns no values
+    # print all_distances
     print "\t".join(map(str, ['Sample/Distance'] + all_distances))
     for bc in read_stats:
         to_print = [bc]
