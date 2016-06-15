@@ -10,6 +10,7 @@ import argparse
 from collections import defaultdict
 import itertools
 import datetime
+import sys
 
 # block of improvements to be made:
 # TODO: output unknown.fastq changed to reference what the source material was or allow specific name in expected file
@@ -45,8 +46,34 @@ def log(string_to_print, stdout_also=False):
         print string_to_print
 
 
-log("\nScript executed at: " + str(datetime.datetime.now()) + "\nWith the following command line options:")
-log("\t" + "\n\t".join(map(str, [str(arg) + "\t" + str(getattr(args, arg)) for arg in vars(args)])))  # log all input options except score function
+def levenshtein(s1, s2):
+    """
+    Calculates levenshtein distance between s1 and s2. see https://en.wikipedia.org/wiki/Levenshtein_distance for more info.
+    Distances to be calculated using Levenshtein Distance rather than hamming distance to allow for indels.
+    :param s1: string 1
+    :param s2: string 2
+    :return: levenshtein distance between two sequences
+    variation of code found at https://en.wikibooks.org/wiki/Algorithm_Implementation/Strings/Levenshtein_distance#Python
+    """
+    # Coded under assumption that as barcode regions are trimmed from raw reads and are appropriate length.
+    # see above links for use with unequal lengths
+
+    previous_row = range(len(s2) + 1)
+    for i, c1 in enumerate(s1):
+        current_row = [i + 1]
+        for j, c2 in enumerate(s2):
+            #  TODO evaluate concerns that if BC contains insertions, the remaining read contains adapter sequence to be used for mapping, and figure out how to modify this
+            insertions = previous_row[j + 1] + 1  # j+1 instead of j since previous_row and current_row are one character longer than s2
+            deletions = current_row[j] + 1
+            substitutions = previous_row[j] + (c1 != c2)  # True has value of 1 False has value of 0
+            current_row.append(min(insertions, deletions, substitutions))
+        previous_row = current_row
+
+    return previous_row[-1]
+
+
+log("\nScript executed at: " + str(datetime.datetime.now()) + "\nWith the following command line options:", True)
+log("\t" + "\n\t".join(map(str, [str(arg) + "\t" + str(getattr(args, arg)) for arg in vars(args)])), True)  # log all input options
 
 # Set up read dictionary
 read_dict = {}
@@ -160,43 +187,20 @@ for entry in read_dict:
 # Write out new Fastq file statistics
 log("Fastq file statistics for reads with perfect matches:", True)
 for entry in [x for x in read_stats if x is not "unknown"] + ["unknown"]:
-    log((output_dict[entry] + ".fastq", "\t", read_stats[entry][0]), True)  # 0 because only perfect matches have been and will be stored
+    log(output_dict[entry] + ".fastq" + "\t" + read_stats[entry][0], True)  # 0 because only perfect matches have been and will be stored
 
 if not args.perfect:  # mismatches allowed, therefore try to assign reads in the "unknown" group to barcode
-
     log("\nAttempting assignment of %i unknown barcodes with mistmatches." % read_stats["unknown"][0], True)
-
-    # Distances to be calculated using Levenshtein Distance rather than hamming distance to allow for indels.
-    def levenshtein(s1, s2):
-        """
-        Calculates levenshtein distance between s1 and s2. see https://en.wikipedia.org/wiki/Levenshtein_distance for more info.
-        :param s1: string 1
-        :param s2: string 2
-        :return: levenshtein distance between two sequences
-        variation of code found at https://en.wikibooks.org/wiki/Algorithm_Implementation/Strings/Levenshtein_distance#Python
-        """
-        # Coded under assumption that as barcode regions are trimmed from raw reads and are appropriate length.
-        # see above links for use with unequal lengths
-
-        previous_row = range(len(s2) + 1)
-        for i, c1 in enumerate(s1):
-            current_row = [i + 1]
-            for j, c2 in enumerate(s2):
-                #  TODO evaluate concerns that if BC contains insertions, the remaining read contains adapter sequence to be used for mapping, and figure out how to modify this
-                insertions = previous_row[j + 1] + 1  # j+1 instead of j since previous_row and current_row are one character longer than s2
-                deletions = current_row[j] + 1
-                substitutions = previous_row[j] + (c1 != c2)  # True has value of 1 False has value of 0
-                current_row.append(min(insertions, deletions, substitutions))
-            previous_row = current_row
-
-        return previous_row[-1]
 
     # Determine distance barcodes are from each other
     barcode_distances = []
     for pair in itertools.combinations([x for x in read_dict.keys() if x is not "unknown"], 2):
         barcode_distances.append(levenshtein(pair[0], pair[1]))
-    distance_tolerated = (min(barcode_distances) / 2.0) - 1  # observed BC must be more than twice as close to 1 barcode as any other
-    assert distance_tolerated >= 1, "distance tollerated <1, therefore, no mutations are allowed ... reads "
+    distance_tolerated = (min(barcode_distances) / 2.0) - 1  # observed BC must be more than twice as close to 1 barcode as any other. Without the -1, ties are possible.
+    if distance_tolerated == 0:
+        log("Distance tolerated is 0 therefore, no mutations in barcodes can be tollerated.\nThis should not happen with well constructed internal barcodes, check expected.tsv file for accuracy.\nThe output files are equivelent to running script with '-p' or '--perfect'.", True)
+        log("Script Completed Successfully", True)
+        sys.exit()
     log("All barcodes are at least %i mutations away from one another. Therefore an unknown barcode must be within %i mutations of a known barcode to be assigned. Ties are not possible" % (min(barcode_distances), distance_tolerated), True)
 
     # group unknown barcodes with known barcodes if they within given distance
@@ -285,6 +289,7 @@ if not args.perfect:  # mismatches allowed, therefore try to assign reads in the
                     print>>output, "\n".join(map(str, read_dict[entry][read_dir]))
                 read_dict["unknown"][read_dir] = []  # reset read_dict to only accept new reads should be irrelevant
 
+    # Write updated fastq statistics
     all_distances = sorted(list(set((itertools.chain.from_iterable([read_stats[x].keys() for x in read_stats])))))  # generate list of all "best" distances detected
     log("\t".join(map(str, ["Sample/Distance"] + all_distances)), True)
     for bc in [x for x in read_stats if x is not "unknown"] + ["unknown"]:
@@ -295,14 +300,6 @@ if not args.perfect:  # mismatches allowed, therefore try to assign reads in the
             except KeyError:
                 to_print.append(0)
         log("\t".join(map(str, to_print)), True)
-    # to_print = ["unknown"]
-    # for dist in all_distances:
-    #     try:
-    #         to_print.append(read_stats["unknown"][dist])
-    #     except KeyError:
-    #         to_print.append(0)
-    # print "\t".join(map(str, to_print))
-
 
 log("Script Completed Successfully", True)
 
@@ -310,5 +307,3 @@ log("Script Completed Successfully", True)
 # print "Based on Brian's tnSeq data, R1 barcode has an additional A as the first base off. Script currently treats this as generalized fact."
 # print "If output looks odd (ie 100% of reads going to unk), check this first. Dan and Sean"
 # above removed 5-31-2016 based on Dacia's data. For Brian's Data, script now requires -read_1_prefix "A" for brian's transposon library
-
-
