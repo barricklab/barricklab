@@ -147,7 +147,7 @@ with open(args.fastq1, "r") as Fastq1, open(args.fastq2, "r") as Fastq2:
                     read_dict["unknown"]["_R2"].extend([header2, read2, "+" + bc, quality2])
                     unknown_barcodes[bc] += 2  # keep track of how many READS have the barcode, because bc is based on paired reads is 2 not 1
         if args.verbose and line_count % 200000 == 0:
-            print line_count / 4, "read pairss processed"
+            print line_count / 4, "read pairs processed"
             # break  # Uncomment for testing subset of reads rather than full read list
         if line_count % 40000000 == 0:
             if args.verbose:
@@ -254,7 +254,7 @@ if not args.perfect:  # mismatches allowed, therefore try to assign reads in the
                         read_dict["unknown"]["_R1"].extend([header1, read1, "+" + bc, quality1])
                         read_dict["unknown"]["_R2"].extend([header2, read2, "+" + bc, quality2])
                 if args.verbose and line_count % 200000 == 0:
-                    print line_count / 4, "unknown read pairss processed"
+                    print line_count / 4, "unknown read pairs processed"
                     # break  # Uncomment for testing subset of reads rather than full read list
 
                 if line_count % 40000000 == 0:
