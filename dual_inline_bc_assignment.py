@@ -77,9 +77,11 @@ log("\t" + "\n\t".join(map(str, [str(arg) + "\t" + str(getattr(args, arg)) for a
 
 # Set up read dictionary
 read_dict = {}
-output_dict = {"unknown": "unknown_barcodes"}
+unknown = "unknown_barcodes_" + args.fastq1.rstrip("_R1_001.fastq")
+output_dict = {"unknown": unknown}
 read_stats = {"unknown": defaultdict(int)}
 unknown_barcodes = defaultdict(int)
+
 with open(args.expected, "r") as f:
     for line in f:
         line = line.rstrip().split("\t")
@@ -93,7 +95,6 @@ with open(args.expected, "r") as f:
             read_dict[line[1]] = []
         else:
             read_dict[line[1]] = {"_R1": [], "_R2": []}
-        print line[0]
         output_dict[line[1]] = line[0].rstrip(".fastq")
 if args.combine:
     read_dict["unknown"] = []
@@ -106,10 +107,9 @@ for entry in output_dict:
         assert not os.path.exsists(output_dict[entry] + ".fastq"), "%s file already exists. Move existing file to new location or delete" % (output_dict[entry] + ".fastq")
     else:
         for _ in ["_R1", "_R2"]:
-            print output_dict[entry]
             assert not os.path.exists(output_dict[entry] + _ + ".fastq"), "%s file already exists. Move existing file to new location or delete" % (output_dict[entry] + _ + ".fastq")
             if not args.perfect:
-                assert not os.path.exists("junk_sequences" + _ + ".fastq"), "%s file already exists. Move existing file to new location or delete" % (output_dict[entry] + _ + ".fastq")
+                assert not os.path.exists("junk_sequences" + _ + ".fastq"), "%s file already exists. Move existing file to new location or delete" % ("junk_sequences" + _ + ".fastq")
 
 # Read fastq1 an fastq2 in together
 line_count = 0
