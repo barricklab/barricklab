@@ -112,6 +112,7 @@ for files in os.listdir(args.fastq):
             sample_name = re.sub(r'^JA\d+_', r'', sample_name)  # remove common unnecessary JA IDs
             sample_name = re.sub(r'^Sample_', r'', sample_name)  # remove common Sample_ from file names
             sample_name = re.sub(r'_R\d$', r'', sample_name)  # remove common _R1/2 from sample name. common after IBC split
+            sample_name = re.sub(r'_additional', r'', sample_name)  # remove "additional" part of name for IBC samples run in 2 diff lanes. @DED 6-20-16
             print files, "becomes", sample_name
         
         name_parts = sample_name.split("_")
