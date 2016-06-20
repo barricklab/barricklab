@@ -295,7 +295,7 @@ if not args.perfect:  # mismatches allowed, therefore try to assign reads in the
     all_distances = sorted(list(set((itertools.chain.from_iterable([read_stats[x].keys() for x in read_stats])))))  # generate list of all "best" distances detected
     log("\t".join(map(str, ["Sample/Distance"] + all_distances)), True)
     for bc in [x for x in read_stats if x is not unknown] + [unknown]:
-        to_print = [bc]
+        to_print = [output_dict[bc]]
         for dist in all_distances:
             try:
                 to_print.append(read_stats[bc][dist])
