@@ -93,6 +93,7 @@ with open(args.expected, "r") as f:
             read_dict[line[1]] = []
         else:
             read_dict[line[1]] = {"_R1": [], "_R2": []}
+        print line[0]
         output_dict[line[1]] = line[0].rstrip(".fastq")
 if args.combine:
     read_dict["unknown"] = []
@@ -105,6 +106,7 @@ for entry in output_dict:
         assert not os.path.exsists(output_dict[entry] + ".fastq"), "%s file already exists. Move existing file to new location or delete" % (output_dict[entry] + ".fastq")
     else:
         for _ in ["_R1", "_R2"]:
+            print output_dict[entry]
             assert not os.path.exists(output_dict[entry] + _ + ".fastq"), "%s file already exists. Move existing file to new location or delete" % (output_dict[entry] + _ + ".fastq")
             if not args.perfect:
                 assert not os.path.exists("junk_sequences" + _ + ".fastq"), "%s file already exists. Move existing file to new location or delete" % (output_dict[entry] + _ + ".fastq")
