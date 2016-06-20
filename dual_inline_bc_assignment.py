@@ -78,8 +78,8 @@ log("\t" + "\n\t".join(map(str, [str(arg) + "\t" + str(getattr(args, arg)) for a
 # Set up read dictionary
 read_dict = {}
 unknown = "unknown_barcodes_" + args.fastq1.rstrip("_R1_001.fastq")
-output_dict = {"unknown": unknown}
-read_stats = {"unknown": defaultdict(int)}
+output_dict = {unknown: unknown}
+read_stats = {unknown: defaultdict(int)}
 unknown_barcodes = defaultdict(int)
 
 with open(args.expected, "r") as f:
@@ -97,9 +97,9 @@ with open(args.expected, "r") as f:
             read_dict[line[1]] = {"_R1": [], "_R2": []}
         output_dict[line[1]] = line[0].rstrip(".fastq")
 if args.combine:
-    read_dict["unknown"] = []
+    read_dict[unknown] = []
 else:
-    read_dict["unknown"] = {"_R1": [], "_R2": []}
+    read_dict[unknown] = {"_R1": [], "_R2": []}
 
 # Verify output file names are valid
 for entry in output_dict:
@@ -109,7 +109,7 @@ for entry in output_dict:
         for _ in ["_R1", "_R2"]:
             assert not os.path.exists(output_dict[entry] + _ + ".fastq"), "%s file already exists. Move existing file to new location or delete" % (output_dict[entry] + _ + ".fastq")
             if not args.perfect:
-                assert not os.path.exists("junk_sequences" + _ + ".fastq"), "%s file already exists. Move existing file to new location or delete" % ("junk_sequences" + _ + ".fastq")
+                assert not os.path.exists("junk_" + unknown + _ + ".fastq"), "%s file already exists. Move existing file to new location or delete" % ("junk_sequences" + _ + ".fastq")
 
 # Read fastq1 an fastq2 in together
 line_count = 0
@@ -137,7 +137,7 @@ with open(args.fastq1, "r") as Fastq1, open(args.fastq2, "r") as Fastq2:
                     read_dict[bc].extend([header1, read1, "+", quality1, header2, read2, "+", quality2])
                 except KeyError:  # barcodes not identified, therefore sore as unknown
                     #  NOTE that the typical "+" symbol on line 3 is changed to what the unidentified barcode was, with first half corresponding to read 1 and second half corresponding to read 2
-                    read_dict["unknown"].extend([header1, read1, "+" + bc, quality1, header2, read2, bc, quality2])
+                    read_dict[unknown].extend([header1, read1, "+" + bc, quality1, header2, read2, bc, quality2])
                     unknown_barcodes[bc] += 2  # keep track of how many READS have the barcode, because bc is based on paired reads is 2 not 1
             else:  # R1 and R2 to be kept separate in final output
                 try:
@@ -145,8 +145,8 @@ with open(args.fastq1, "r") as Fastq1, open(args.fastq2, "r") as Fastq2:
                     read_dict[bc]["_R2"].extend([header2, read2, "+", quality2])
                 except KeyError:  # barcodes not specified, therefore sore as unknown
                     #  NOTE that the typical "+" symbol on line 3 is changed to what the unidentified barcode was, with first half corresponding to read 1 and second half corresponding to read 2
-                    read_dict["unknown"]["_R1"].extend([header1, read1, "+" + bc, quality1])
-                    read_dict["unknown"]["_R2"].extend([header2, read2, "+" + bc, quality2])
+                    read_dict[unknown]["_R1"].extend([header1, read1, "+" + bc, quality1])
+                    read_dict[unknown]["_R2"].extend([header2, read2, "+" + bc, quality2])
                     unknown_barcodes[bc] += 2  # keep track of how many READS have the barcode, because bc is based on paired reads is 2 not 1
         if args.verbose and line_count % 200000 == 0:
             print line_count / 4, "read pairs processed"
@@ -188,15 +188,15 @@ for entry in read_dict:
 
 # Write out new Fastq file statistics
 log("Fastq file statistics for reads with perfect matches:", True)
-for entry in [x for x in read_stats if x is not "unknown"] + ["unknown"]:
+for entry in [x for x in read_stats if x is not unknown] + [unknown]:
     log(output_dict[entry] + ".fastq" + "\t" + str(read_stats[entry][0]), True)  # 0 because only perfect matches have been and will be stored
 
 if not args.perfect:  # mismatches allowed, therefore try to assign reads in the "unknown" group to barcode
-    log("\nAttempting assignment of %i unknown barcodes with mistmatches." % read_stats["unknown"][0], True)
+    log("\nAttempting assignment of %i unknown barcodes with mistmatches." % read_stats[unknown][0], True)
 
     # Determine distance barcodes are from each other
     barcode_distances = []
-    for pair in itertools.combinations([x for x in read_dict.keys() if x is not "unknown"], 2):
+    for pair in itertools.combinations([x for x in read_dict.keys() if x is not unknown], 2):
         barcode_distances.append(levenshtein(pair[0], pair[1]))
     distance_tolerated = (min(barcode_distances) / 2.0) - 1  # observed BC must be more than twice as close to 1 barcode as any other. Without the -1, ties are possible.
     if distance_tolerated == 0:
@@ -209,7 +209,7 @@ if not args.perfect:  # mismatches allowed, therefore try to assign reads in the
     mismatch_dict = {}
     for unknown_barcode in unknown_barcodes:
         best = float("inf")
-        for bc in [x for x in read_dict.keys() if x is not "unknown"]:
+        for bc in [x for x in read_dict.keys() if x is not unknown]:
             distance = levenshtein(unknown_barcode, bc)
             if distance < best:
                 best = distance
@@ -217,8 +217,8 @@ if not args.perfect:  # mismatches allowed, therefore try to assign reads in the
             elif distance == best:
                 mismatch_dict[unknown_barcode] = [mismatch_dict[unknown_barcode], bc]
         if best > distance_tolerated:
-            mismatch_dict[unknown_barcode] = "unknown"
-            read_stats["unknown"][distance] += unknown_barcodes[unknown_barcode]  # add number of reads observed with this barcode
+            mismatch_dict[unknown_barcode] = unknown
+            read_stats[unknown][distance] += unknown_barcodes[unknown_barcode]  # add number of reads observed with this barcode
             continue
         assert isinstance(mismatch_dict[unknown_barcode], str), "Barcode tied with a distance tolerated for assignment!\nunknown barcode:\t%s\nmatches:\t%s\ndistance:\t%i" % (unknown_barcode, mismatch_dict[unknown_barcode], best)
         read_stats[mismatch_dict[unknown_barcode]][best] += unknown_barcodes[unknown_barcode]  # add number of reads observed with this barcode based on distance
@@ -231,7 +231,7 @@ if not args.perfect:  # mismatches allowed, therefore try to assign reads in the
     else:
         # Fastq files passed assertions prior to writing, therefore limited use here for speed
         line_count = 0
-        with open("unknown_barcodes_R1.fastq", "r") as fastq1, open("unknown_barcodes_R2.fastq", "r") as fastq2:  # TODO revisit names if unknown to represent raw input names
+        with open(unknown + "_R1.fastq", "r") as fastq1, open(unknown + "_R2.fastq", "r") as fastq2:
             for line1 in fastq1:
                 line1 = line1.rstrip()
                 line2 = fastq2.next().rstrip()  # advance read 2 file to keep in sync
@@ -249,12 +249,12 @@ if not args.perfect:  # mismatches allowed, therefore try to assign reads in the
                     quality1 = line1
                     quality2 = line2
                     new_bc = mismatch_dict[bc]
-                    if new_bc is not "unknown":
+                    if new_bc is not unknown:
                         read_dict[mismatch_dict[bc]]["_R1"].extend([header1, read1, "+", quality1])
                         read_dict[mismatch_dict[bc]]["_R2"].extend([header2, read2, "+", quality2])
                     else:
-                        read_dict["unknown"]["_R1"].extend([header1, read1, "+" + bc, quality1])
-                        read_dict["unknown"]["_R2"].extend([header2, read2, "+" + bc, quality2])
+                        read_dict[unknown]["_R1"].extend([header1, read1, "+" + bc, quality1])
+                        read_dict[unknown]["_R2"].extend([header2, read2, "+" + bc, quality2])
                 if args.verbose and line_count % 200000 == 0:
                     print line_count / 4, "unknown read pairs processed"
                     # break  # Uncomment for testing subset of reads rather than full read list
@@ -263,16 +263,16 @@ if not args.perfect:  # mismatches allowed, therefore try to assign reads in the
                     if args.verbose:
                         print "Writing 10,000,000 unknown read pairs"
                     for entry in read_dict:
-                        if entry is not "unknown":
+                        if entry is not unknown:
                             for read_dir in read_dict[entry]:
                                 with open(output_dict[entry] + read_dir + ".fastq", "a") as output:  # file name availability checked before read read-in
                                     print>>output, "\n".join(map(str, read_dict[entry][read_dir]))
                                 read_dict[entry][read_dir] = []  # reset read_dict to only accept new reads
                         else:
-                            for read_dir in read_dict["unknown"]:
-                                with open("junk_sequences" + read_dir + ".fastq", "a") as output:
+                            for read_dir in read_dict[unknown]:
+                                with open("junk_" + unknown + read_dir + ".fastq", "a") as output:
                                     print>>output, "\n".join(map(str, read_dict[entry][read_dir]))
-                                read_dict["unknown"][read_dir] = []  # reset read_dict to only accept new reads
+                                read_dict[unknown][read_dir] = []  # reset read_dict to only accept new reads
 
     # need final write for <10million unknown reads at end of file
     if line_count < 40000000:
@@ -280,21 +280,21 @@ if not args.perfect:  # mismatches allowed, therefore try to assign reads in the
     else:
         print "Writing remaining %i unknown read pairs" % ((line_count % 40000000) / 4)
     for entry in read_dict:
-        if entry is not "unknown":
+        if entry is not unknown:
             for read_dir in read_dict[entry]:
                 with open(output_dict[entry] + read_dir + ".fastq", "a") as output:  # file name availability checked before read read-in
                     print>>output, "\n".join(map(str, read_dict[entry][read_dir]))
                 read_dict[entry][read_dir] = []  # reset read_dict to only accept new reads should be irrelevant
         else:
-            for read_dir in read_dict["unknown"]:
-                with open("junk_sequences" + read_dir + ".fastq", "a") as output:
+            for read_dir in read_dict[unknown]:
+                with open("junk_" + unknown + read_dir + ".fastq", "a") as output:
                     print>>output, "\n".join(map(str, read_dict[entry][read_dir]))
-                read_dict["unknown"][read_dir] = []  # reset read_dict to only accept new reads should be irrelevant
+                read_dict[unknown][read_dir] = []  # reset read_dict to only accept new reads should be irrelevant
 
     # Write updated fastq statistics
     all_distances = sorted(list(set((itertools.chain.from_iterable([read_stats[x].keys() for x in read_stats])))))  # generate list of all "best" distances detected
     log("\t".join(map(str, ["Sample/Distance"] + all_distances)), True)
-    for bc in [x for x in read_stats if x is not "unknown"] + ["unknown"]:
+    for bc in [x for x in read_stats if x is not unknown] + [unknown]:
         to_print = [bc]
         for dist in all_distances:
             try:
