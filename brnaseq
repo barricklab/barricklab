@@ -1,0 +1,248 @@
+#!/usr/bin/env perl -w
+
+###
+# Pod Documentation
+###
+
+=head1 NAME
+
+brnseq.pl
+
+=head1 SYNOPSIS
+
+Usage: brnaseq -o 03_Output/sample -r reference.gff3  -g sample.gd [-j 1]
+
+Pipeline for mapping short reads to a genome and counting the number overlapping each gene.
+If you have paired-end sequencing data, two filenames that contain _R1 and _R2 but are otherwise 
+identical are expected and these must be one after another in the list of read files.
+
+Usage: brnaseq FINISH [-d 03_Output] [-o final_output]
+
+Alternative usage to compile all output into one set of files
+
+=head1 DESCRIPTION
+
+=over
+
+=item B<--output|-o> <path/to/output> 
+
+Output path.
+
+=item B<--reference|-r> <path/to/reference/file> 
+
+Reference sequence file. Should be in either Genbank or GFF3 format.
+Multiple reference files can be provided by using this option more than once.
+
+=item B<--genome-diff|-g> <path/to/genome_diff/file> 
+
+Input GenomeDiff file name. Used to name the sample.
+
+=item B<--threads|-j> <integer> 
+
+Number of threads to use for parallelized steps.
+
+=item B<--keep-intermediates|-k>
+
+Do not delete intermediate files when done with them. Used for debugging.
+
+=item B<--data|-d>
+
+Data path containing  subdirectories with "counts.tsv" files from different samples.
+
+=back
+
+=head1 AUTHOR
+
+Jeffrey Barrick
+
+=head1 COPYRIGHT
+
+Copyright 2017.  All rights reserved.
+
+=cut
+
+###
+# End Pod Documentation
+###
+
+use strict;
+
+use FindBin;
+use lib $FindBin::Bin;
+use Data::Dumper;
+
+
+#Get options
+use Getopt::Long;
+use Pod::Usage;
+
+
+sub run_command {
+	my $command = shift(@_);
+	print "$command\n";
+	my $res = system "$command";
+}
+
+if ("\U$ARGV[0]" eq "FINISH") {
+
+	my ($help, $man);
+	my ($output_path, $data_path);
+	pod2usage(1) if (scalar @ARGV == 0);
+	GetOptions(
+		'help|?' => \$help, 'man' => \$man,
+		'output|r=s' => \$output_path,
+		'data|d=s' => \$data_path,
+	) or pod2usage(2);
+	pod2usage(1) if $help;
+	pod2usage(-exitstatus => 0, -verbose => 2) if $man;
+
+	##defaults
+	$output_path = "final_output" if (!defined $output_path);
+	$data_path = "03_Output" if (!defined $data_path);
+
+	opendir DATADIR, "$data_path";
+	my @data_dir_names = grep { !/^\./ && -d "$data_path/$_" } readdir(DATADIR);
+
+	print Dumper(@data_dir_names) . "\n";
+
+	my @output_lines;
+	
+	foreach my $data_dir_name (@data_dir_names) {
+
+		my $is_first_file = ($data_dir_name eq $data_dir_names[0]) ? 1 : 0;
+		my $on_line = 0;
+		open FILE, "<$data_path/$data_dir_name/counts.tsv";
+		while (my $line = <FILE>) {
+			chomp $line;
+			if ($is_first_file) {
+				$output_lines[$on_line] = $line;
+			} else {
+				my @split_line = split "\t", $line;
+				$output_lines[$on_line] .= "\t" . $split_line[1];
+			}
+			$on_line++;
+		}
+	}
+
+	system("mkdir -p $output_path");
+	open OUTFILE, ">$output_path/count.tsv";
+	foreach my $line (@output_lines) {
+		print OUTFILE $line . "\n";
+	}
+	exit(0);
+} 
+
+
+my ($help, $man);
+my (@reference_files);
+my ($output_path, $genome_diff_file, $num_threads, $keep_intermediates);
+pod2usage(1) if (scalar @ARGV == 0);
+GetOptions(
+	'help|?' => \$help, 'man' => \$man,
+	'output|o=s' => \$output_path,
+	'genome-diff|g=s' => \$genome_diff_file,
+	'reference|r=s' => \@reference_files,
+	'threads|j=s' => \$num_threads,
+	'keep-intermediates|k' => \$keep_intermediates
+) or pod2usage(2);
+pod2usage(1) if $help;
+pod2usage(-exitstatus => 0, -verbose => 2) if $man;
+
+my @read_files = @ARGV;
+
+$num_threads = 1 if (!defined $num_threads);
+
+#figure out if any of the reads are paired
+#(convert to a list of lists)
+
+my @paired_read_files;
+my $prev_read_file = "";
+foreach my $read_file (@read_files) {
+
+	my $prev_read_file="";
+	if (scalar @paired_read_files) {
+		$prev_read_file = ${$paired_read_files[-1]}[-1];
+	}
+
+	my $check_read_pair = $prev_read_file;
+	$check_read_pair =~ s/_R1/_R2/g;
+	$check_read_pair =~ s/_P1/_P2/g;
+
+	if ($read_file eq $check_read_pair) {
+		push @{$paired_read_files[$#paired_read_files]}, $read_file;
+	} else {
+		my @new_paired_read_file = ($ read_file );
+		push @paired_read_files, \@new_paired_read_file;
+	}
+}
+#print Dumper(@paired_read_files);
+
+
+
+#convert the reference file(s)
+run_command("breseq CONVERT-REFERENCE -f FASTA -o $output_path/reference.fna " . join(" ", @reference_files));
+run_command("breseq CONVERT-REFERENCE -n -f GFF3 -o $output_path/reference.gff3 " . join(" ", @reference_files));
+run_command("bowtie2-build $output_path/reference.fna $output_path/reference");
+
+
+## bowtie2 and htseq seems to *reall* like their paired and unpaired reads kept separate
+
+
+##-k 1 option means to stop after one match, makes things much faster, but should compare to leaving option OFF
+# Run bowtie2 twice, once for paired and once for unpaired
+my $bowtie2_paired_command = "bowtie2 -k 1 -p $num_threads -x $output_path/reference ";
+
+foreach my $paired_read_files (@paired_read_files) {
+	my @this_read_pair_list = @$paired_read_files;
+	
+	if (scalar @this_read_pair_list == 2) {
+		$bowtie2_paired_command .= " -1 $this_read_pair_list[0]";
+		$bowtie2_paired_command .= " -2 $this_read_pair_list[1]";
+	}
+}
+$bowtie2_paired_command .= " -S $output_path/aligned.paired.sam";
+
+
+my $bowtie2_unpaired_command = "bowtie2 -k 1 -p $num_threads -x $output_path/reference ";
+
+foreach my $paired_read_files (@paired_read_files) {
+	my @this_read_pair_list = @$paired_read_files;
+	
+	if (scalar @this_read_pair_list == 1) {
+		$bowtie2_unpaired_command .= " -U $this_read_pair_list[0]";
+	}
+}
+$bowtie2_unpaired_command .= " -S $output_path/aligned.unpaired.sam";
+
+run_command($bowtie2_paired_command);
+run_command($bowtie2_unpaired_command);
+
+
+run_command("htseq-count -t gene -i ID -f sam -r name $output_path/aligned.paired.sam  $output_path/reference.gff3 > $output_path/counts.paired.tsv");
+run_command("htseq-count -t gene -i ID -f sam -r name $output_path/aligned.unpaired.sam  $output_path/reference.gff3 > $output_path/counts.unpaired.tsv");
+
+run_command("rm $output_path/reference* $output_path/aligned*") if (!defined $keep_intermediates);
+
+## combine the two output files into a final counts.tsv
+open PAIRED_FILE, "<$output_path/counts.paired.tsv";
+open UNPAIRED_FILE, "<$output_path/counts.unpaired.tsv";
+open FINAL_FILE, ">$output_path/counts.tsv";
+
+my $gd_file_base_name = $genome_diff_file;
+$gd_file_base_name =~ s/^.+\///;
+$gd_file_base_name =~ s/\..+$//;
+
+print FINAL_FILE join("\t", ("gene", $gd_file_base_name)) . "\n";
+
+while (my $paired_line = <PAIRED_FILE>) {
+	my $unpaired_line = <UNPAIRED_FILE>;
+	my @paired_line_list = split /\t/, $paired_line;
+	my @unpaired_line_list = split /\t/, $unpaired_line;
+
+	my $summed_count = scalar($paired_line_list[1]) + scalar($unpaired_line_list[1]);
+
+	print FINAL_FILE join("\t", ($paired_line_list[0], $summed_count)) . "\n";
+}
+
+run_command("rm $output_path/counts.paired.tsv $output_path/counts.unpaired.tsv") if (!defined $keep_intermediates);
+
