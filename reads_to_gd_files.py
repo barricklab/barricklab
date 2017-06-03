@@ -24,7 +24,7 @@ parser = argparse.ArgumentParser(description="read in .fastq.gz file names, gene
 parser.add_argument("-a", "--author", help="Your name.")
 parser.add_argument("-f", "--fastq", help="Absolute path to directory containing gzipped read files. Example: /corral-repl/utexas/breseq/genomes/utexas_gsaf/Project_###", required=True)
 parser.add_argument("-i", "--index", action='store_true', help="Index files exist in fastq directory, but should be ignored.")
-parser.add_argument("-r", "--reference", help="Absolute location and name of reference file. Example: /corral-repl/utexas/breseq/genomes/reference/REL606.6.gbk", default="None")
+parser.add_argument("-r", "--reference", nargs='*', help="Absolute location and name of reference file. Example: /corral-repl/utexas/breseq/genomes/reference/REL606.6.gbk", default="None")
 parser.add_argument("-b", "--barricklab", action='store_true', help="Files are stored in barricklab location on corral.")
 parser.add_argument("-s", "--sra", action='store_true', help="Files are on the NCBI SRA archive.")
 parser.add_argument("-o", "--output", default="new_gd_files", help="Output directory for .gd files (will be created if it doesn't exist).")
@@ -32,7 +32,7 @@ parser.add_argument("-v", "--verbose", action='store_true', help="Increase outpu
 parser.add_argument("-m", "--meta", help="Optional meta data tsv file with headers. 'sample' required, any of the following allowed: 'population', 'time' (meaning generation), 'treatment', 'clone'")
 
 
-#show help if no arguments passed
+# show help if no arguments passed
 if len(sys.argv) < 2:
     parser.print_help()
     sys.exit(1)
@@ -50,12 +50,15 @@ if args.barricklab is not False and args.sra is not False:
     sys.exit(1)
 
 # Check that absolute paths for fastq and reference files are used.
-if not (re.search("^/", args.fastq) and re.search("None|^/", args.reference)):
+root_warn = [re.search("^/", args.fastq)] + [re.search("None|^/", ref_warn_check) for ref_warn_check in args.reference]
+if root_warn.count(None):
     parser.print_help()
-    print "\n\n!!!!!!!!!!!!!!!WARNING!!!!!!!!!!!!!!!\nPlease specify fastq directory and/or reference file from root."
+    print "\n\n!!!!!!!!!!!!!!!WARNING!!!!!!!!!!!!!!!\nPlease specify fastq directory and/or reference file from root.\n"
+    print "\n".join(map(str, [args.fastq] + args.reference))
+    print "^ Should be a '/' mark, please make appropriate changes"
     sys.exit(1)
 
-allowable_list = ['TIME', 'POPULATION', 'TREATMENT', 'SAMPLE']
+allowable_list = ['TIME', 'POPULATION', 'TREATMENT', 'SAMPLE', 'CLONE']
 meta = {}
 sample_names = {}
 master_dict = {}
@@ -95,32 +98,48 @@ for files in os.listdir(args.fastq):
             if re.search("L00\d_I\d_00\d.fastq.gz", files):
                 continue  # ignore fastq files that are generated from index reads.
 
-        sample_name = files 
-        sample_name = sample_name.replace(".fastq.gz", "")
-        #ditch things like this _L002_R2_001
-        sample_name = re.sub(r'_L\d\d\d_R\d_\d\d\d$', r'', sample_name)
-        sample_name = re.sub(r'^JA\d+_', r'', sample_name)
-        sample_name = re.sub(r'^Sample_', r'', sample_name)
-        
-        print sample_name
-        
-        name_parts = files.split("_")
-            
-        if re.match("[ACTG]{6}", name_parts[1]):
-            if name_parts[0] in master_dict:
-                master_dict[name_parts[0]].append(['READSEQ', files])
-            elif name_parts[0] in sample_names:
-                sample_names[name_parts[0]].append(files)
-            elif name_parts[0] not in sample_names:
-                sample_names[name_parts[0]] = [files]
-        elif re.match("[ACTG]{6}", name_parts[2]):  # allows for 1 underscore character in name system
-            if name_parts[0] + "_" + name_parts[1] in master_dict:
-                master_dict[name_parts[0] + "_" + name_parts[1]].append(['READSEQ', files])
-            elif name_parts[0] + "_" + name_parts[1] in sample_names:
-                sample_names[name_parts[0] + "_" + name_parts[1]].append(files)
-            elif name_parts[0] + "_" + name_parts[1] not in sample_names:
-                sample_names[name_parts[0] + "_" + name_parts[1]] = [files]
+        sample_name = files
+        if re.search('_S\d+_L\d\d\d_R\d_\d\d\d.fastq.gz$', sample_name):  # @DED 3-30-16 new fastq naming system being used by gsaf
+            sample_name = re.sub(r'_S\d+_L\d\d\d_R\d_\d\d\d.fastq.gz$', r'', sample_name)
+            sample_name = re.sub(r'^JA\d+_', r'', sample_name)  # remove common unnecessary JA IDs
+            sample_name = re.sub(r'^Sample_', r'', sample_name)  # remove common Sample_ from file names
+            print files, "becomes", sample_name
+
         else:
+            sample_name = sample_name.replace(".fastq.gz", "")
+            # ditch things like this _L002_R2_001 ... @DED 3-30-16 this assumes old gsaf file naming system which had 6 letter bar code prior to lane
+            sample_name = re.sub(r'_L\d\d\d_R\d_\d\d\d$', r'', sample_name)
+            sample_name = re.sub(r'^JA\d+_', r'', sample_name)  # remove common unnecessary JA IDs
+            sample_name = re.sub(r'^Sample_', r'', sample_name)  # remove common Sample_ from file names
+            sample_name = re.sub(r'_R\d$', r'', sample_name)  # remove common _R1/2 from sample name. common after IBC split
+            sample_name = re.sub(r'_additional', r'', sample_name)  # remove "additional" part of name for IBC samples run in 2 diff lanes. @DED 6-20-16
+            print files, "becomes", sample_name
+        
+        name_parts = sample_name.split("_")
+
+        try:
+            if re.match("[ACTG]{6}", name_parts[1]):
+                if name_parts[0] in master_dict:
+                    master_dict[name_parts[0]].append(['READSEQ', files])
+                elif name_parts[0] in sample_names:
+                    sample_names[name_parts[0]].append(files)
+                elif name_parts[0] not in sample_names:
+                    sample_names[name_parts[0]] = [files]
+            elif re.match("[ACTG]{6}", name_parts[2]):  # allows for 1 underscore character in name system
+                if name_parts[0] + "_" + name_parts[1] in master_dict:
+                    master_dict[name_parts[0] + "_" + name_parts[1]].append(['READSEQ', files])
+                elif name_parts[0] + "_" + name_parts[1] in sample_names:
+                    sample_names[name_parts[0] + "_" + name_parts[1]].append(files)
+                elif name_parts[0] + "_" + name_parts[1] not in sample_names:
+                    sample_names[name_parts[0] + "_" + name_parts[1]] = [files]
+            else:  # @DED 3-30-16 this is what is catching the new gsaf fastq output names
+                if sample_name in master_dict:
+                    master_dict[sample_name].append(['READSEQ', files])
+                elif sample_name in sample_names:
+                    sample_names[sample_name].append(files)
+                elif sample_name not in sample_names:
+                    sample_names[sample_name] = [files]
+        except IndexError:
             if sample_name in master_dict:
                 master_dict[sample_name].append(['READSEQ', files])
             elif sample_name in sample_names:
@@ -157,7 +176,7 @@ loc_of_reads = args.fastq
 if args.barricklab:
 #    loc_of_ref = loc_of_ref.replace("/home/lab/", "")
 #    loc_of_reads = loc_of_reads.replace("/home/lab", "")
-    loc_of_ref = loc_of_ref.replace("/corral-repl/utexas/breseq/", "")
+    loc_of_ref = [x.replace("/corral-repl/utexas/breseq/", "") for x in loc_of_ref]
     loc_of_reads = loc_of_reads.replace("/corral-repl/utexas/breseq/", "")
 
 
@@ -174,7 +193,8 @@ for sample in master_dict:
                 print>>output, "#=READSEQ\tBarrickLab-Private:%s/%s" % (loc_of_reads, thing[1])
             else:
                 print>>output, "#=%s\t%s" % (thing[0], thing[1])
-        print>>output, "#=REFSEQ\tBarrickLab-Private:%s" % loc_of_ref
+        for ref_loc in loc_of_ref:
+            print>>output, "#=REFSEQ\tBarrickLab-Private:%s" % ref_loc
 
 for sample in sample_names:
     file_name = "%s/%s.gd" % (args.output.rstrip("/"), sample)
@@ -183,10 +203,12 @@ for sample in sample_names:
         print>>output, "#=GENOME_DIFF 1.0"
         print>>output, "#=AUTHOR\t%s" % args.author
         if args.barricklab:
-            print>>output, "#=REFSEQ\tBarrickLab-Private:%s" % loc_of_ref
+            for ref_loc in loc_of_ref:
+                print>>output, "#=REFSEQ\tBarrickLab-Private:%s" % ref_loc
             for entry in sample_names[sample]:
                 print>>output, "#=READSEQ\tBarrickLab-Private:%s/%s" % (loc_of_reads, entry)
         elif args.sra:
-            print>>output, "#=REFSEQ\tBarrickLab-Private:%s" % loc_of_ref  # currently requiring ref to be in private references ... this should be revisited
+            for ref_loc in loc_of_ref:
+                print>>output, "#=REFSEQ\tBarrickLab-Private:%s" % ref_loc  # currently requiring ref to be in private references ... this should be revisited
             for entry in sample_names[sample]:
                 print>>output, "#=READSEQ\tSRA:%s" % entry
