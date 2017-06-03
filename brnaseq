@@ -1,4 +1,4 @@
-#!/usr/bin/env perl -w
+#!/usr/bin/env perl
 
 ###
 # Pod Documentation
@@ -177,7 +177,7 @@ foreach my $read_file (@read_files) {
 }
 #print Dumper(@paired_read_files);
 
-
+run_command("mkdir -p $output_path");
 
 #convert the reference file(s)
 run_command("breseq CONVERT-REFERENCE -f FASTA -o $output_path/reference.fna " . join(" ", @reference_files));
