@@ -185,12 +185,12 @@ run_command("breseq CONVERT-REFERENCE -n -f GFF3 -o $output_path/reference.gff3 
 run_command("bowtie2-build $output_path/reference.fna $output_path/reference");
 
 
-## bowtie2 and htseq seems to *reall* like their paired and unpaired reads kept separate
-
+## bowtie2 and htseq seems to *really* like their paired and unpaired reads kept separate
 
 ##-k 1 option means to stop after one match, makes things much faster, but should compare to leaving option OFF
-# Run bowtie2 twice, once for paired and once for unpaired
-my $bowtie2_paired_command = "bowtie2 -k 1 -p $num_threads -x $output_path/reference ";
+
+# Run bowtie2 thrice, once for paired and once for each unpaired direction
+my $bowtie2_paired_command = "bowtie2 --no-unal -k 1 -p $num_threads -x $output_path/reference ";
 
 foreach my $paired_read_files (@paired_read_files) {
 	my @this_read_pair_list = @$paired_read_files;
@@ -202,30 +202,39 @@ foreach my $paired_read_files (@paired_read_files) {
 }
 $bowtie2_paired_command .= " -S $output_path/aligned.paired.sam";
 
-
-my $bowtie2_unpaired_command = "bowtie2 -k 1 -p $num_threads -x $output_path/reference ";
+my $bowtie2_unpaired_1_command = "bowtie2 --no-unal -k 1 -p $num_threads -x $output_path/reference ";
+my $bowtie2_unpaired_2_command = "bowtie2 --no-unal -k 1 -p $num_threads -x $output_path/reference ";
 
 foreach my $paired_read_files (@paired_read_files) {
 	my @this_read_pair_list = @$paired_read_files;
 	
 	if (scalar @this_read_pair_list == 1) {
-		$bowtie2_unpaired_command .= " -U $this_read_pair_list[0]";
+		if ( $this_read_pair_list[0] =~ m/_U1/ ) {
+			$bowtie2_unpaired_1_command .= " -U $this_read_pair_list[0]";
+		} elsif ( $this_read_pair_list[0] =~ m/_U2/ ) {
+			$bowtie2_unpaired_2_command .= " -U $this_read_pair_list[0]";
+		}
 	}
 }
-$bowtie2_unpaired_command .= " -S $output_path/aligned.unpaired.sam";
+$bowtie2_unpaired_1_command .= " -S $output_path/aligned.unpaired_1.sam";
+$bowtie2_unpaired_2_command .= " -S $output_path/aligned.unpaired_2.sam";
 
 run_command($bowtie2_paired_command);
-run_command($bowtie2_unpaired_command);
-
+run_command($bowtie2_unpaired_1_command);
+run_command($bowtie2_unpaired_2_command);
 
 run_command("htseq-count -t gene -i ID -f sam -r name $output_path/aligned.paired.sam  $output_path/reference.gff3 > $output_path/counts.paired.tsv");
-run_command("htseq-count -t gene -i ID -f sam -r name $output_path/aligned.unpaired.sam  $output_path/reference.gff3 > $output_path/counts.unpaired.tsv");
+run_command("htseq-count -t gene -i ID -f sam -r name $output_path/aligned.unpaired_1.sam  $output_path/reference.gff3 > $output_path/counts.unpaired_1.tsv");
+## Must reverse read two direction so that it is on the sequenced strand!
+run_command("htseq-count -s reverse -t gene -i ID -f sam -r name $output_path/aligned.unpaired_2.sam  $output_path/reference.gff3 > $output_path/counts.unpaired_2.tsv");
 
 run_command("rm $output_path/reference* $output_path/aligned*") if (!defined $keep_intermediates);
 
 ## combine the two output files into a final counts.tsv
 open PAIRED_FILE, "<$output_path/counts.paired.tsv";
-open UNPAIRED_FILE, "<$output_path/counts.unpaired.tsv";
+open UNPAIRED_1_FILE, "<$output_path/counts.unpaired_1.tsv";
+open UNPAIRED_2_FILE, "<$output_path/counts.unpaired_2.tsv";
+
 open FINAL_FILE, ">$output_path/counts.tsv";
 
 my $gd_file_base_name = $genome_diff_file;
@@ -235,14 +244,17 @@ $gd_file_base_name =~ s/\..+$//;
 print FINAL_FILE join("\t", ("gene", $gd_file_base_name)) . "\n";
 
 while (my $paired_line = <PAIRED_FILE>) {
-	my $unpaired_line = <UNPAIRED_FILE>;
-	my @paired_line_list = split /\t/, $paired_line;
-	my @unpaired_line_list = split /\t/, $unpaired_line;
+	my $unpaired_1_line = <UNPAIRED_1_FILE>;
+	my $unpaired_2_line = <UNPAIRED_2_FILE>;
 
-	my $summed_count = scalar($paired_line_list[1]) + scalar($unpaired_line_list[1]);
+	my @paired_line_list = split /\t/, $paired_line;
+	my @unpaired_1_line_list = split /\t/, $unpaired_1_line;
+	my @unpaired_2_line_list = split /\t/, $unpaired_2_line;
+
+	my $summed_count = scalar($paired_line_list[1]) + scalar($unpaired_1_line_list[1]) + scalar($unpaired_2_line_list[1]);
 
 	print FINAL_FILE join("\t", ($paired_line_list[0], $summed_count)) . "\n";
 }
 
-run_command("rm $output_path/counts.paired.tsv $output_path/counts.unpaired.tsv") if (!defined $keep_intermediates);
+run_command("rm $output_path/counts.paired.tsv $output_path/counts.unpaired_1.tsv $output_path/counts.unpaired_2.tsv") if (!defined $keep_intermediates);
 
