@@ -205,7 +205,7 @@ for sample in sample_names:
         if args.barricklab:
             for ref_loc in loc_of_ref:
                 print>>output, "#=REFSEQ\tBarrickLab-Private:%s" % ref_loc
-            for entry in sample_names[sample]:
+            for entry in sorted(sample_names[sample]):
                 print>>output, "#=READSEQ\tBarrickLab-Private:%s/%s" % (loc_of_reads, entry)
         elif args.sra:
             for ref_loc in loc_of_ref:
