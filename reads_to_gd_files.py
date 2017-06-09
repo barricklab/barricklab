@@ -179,11 +179,11 @@ loc_of_reads = args.fastq
 if args.barricklab:
 #    loc_of_ref = loc_of_ref.replace("/home/lab/", "")
 #    loc_of_reads = loc_of_reads.replace("/home/lab", "")
-    loc_of_ref = [x.replace("/corral-repl/utexas/breseq/", "") for x in loc_of_ref]
-    loc_of_reads = loc_of_reads.replace("/corral-repl/utexas/breseq/", "")
+    loc_of_ref = [x.replace("/corral-repl/utexas/breseq/", "#=REFSEQ\tBarrickLab-Private:") for x in loc_of_ref]
+    loc_of_reads = loc_of_reads.replace("/corral-repl/utexas/breseq/", "#=REFSEQ\tBarrickLab-Private:")
     if args.trim:
         loc_of_adaptseq = args.trim
-        loc_of_adaptseq = loc_of_adaptseq.replace("/corral-repl/utexas/breseq/", "")
+        loc_of_adaptseq = loc_of_adaptseq.replace("/corral-repl/utexas/breseq/", "#=REFSEQ\tBarrickLab-Private:")
 
 
 
@@ -212,11 +212,11 @@ for sample in sample_names:
         print>>output, "#=AUTHOR\t%s" % args.author
         if args.barricklab:
             for ref_loc in loc_of_ref:
-                print>>output, "#=REFSEQ\tBarrickLab-Private:%s" % ref_loc
+                print>>output, "%s" % ref_loc
             if args.trim:
-                print>>output, "#=ADAPTSEQ\tBarrickLab-Private:%s" % loc_of_adaptseq
+                print>>output, "%s" % loc_of_adaptseq
             for entry in sorted(sample_names[sample]):  # sorted so that R1 and R2 will alternate from same sample regardless of order read in
-                print>>output, "#=READSEQ\tBarrickLab-Private:%s/%s" % (loc_of_reads, entry)
+                print>>output, "%s/%s" % (loc_of_reads, entry)
 
         elif args.sra:
             for ref_loc in loc_of_ref:
