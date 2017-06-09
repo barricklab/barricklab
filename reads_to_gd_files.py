@@ -53,10 +53,10 @@ if args.barricklab is not False and args.sra is not False:
     sys.exit(1)
 
 # Check that absolute paths for fastq and reference files are used.
-root_warn = [re.search("^/", args.fastq)] + [re.search("None|^/", ref_warn_check) for ref_warn_check in args.reference]
+root_warn = [re.search("^/", args.fastq)] + [re.search("None|^/|http", ref_warn_check) for ref_warn_check in args.reference]
 if root_warn.count(None):
     parser.print_help()
-    print "\n\n!!!!!!!!!!!!!!!WARNING!!!!!!!!!!!!!!!\nPlease specify fastq directory and/or reference file from root.\n"
+    print "\n\n!!!!!!!!!!!!!!!WARNING!!!!!!!!!!!!!!!\nPlease specify fastq directory and/or reference file from root or reference from web.\n"
     print "\n".join(map(str, [args.fastq] + args.reference))
     print "^ Should be a '/' mark, please make appropriate changes"
     sys.exit(1)
