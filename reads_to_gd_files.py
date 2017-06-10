@@ -164,12 +164,8 @@ for files in os.listdir(args.fastq):
                     #    sample_names[line[27]].append(line[0])
                     #except(KeyError):
 
-
-
 if len(sample_names) > 0:
     print str(len(sample_names)) + " samples lack meta data. " + str(sample_names.keys())
-
-
 
 if not os.path.exists(args.output):
     os.makedirs(args.output)
@@ -177,15 +173,11 @@ if not os.path.exists(args.output):
 loc_of_ref = args.reference
 loc_of_reads = args.fastq
 if args.barricklab:
-#    loc_of_ref = loc_of_ref.replace("/home/lab/", "")
-#    loc_of_reads = loc_of_reads.replace("/home/lab", "")
     loc_of_ref = [x.replace("/corral-repl/utexas/breseq/", "#=REFSEQ\tBarrickLab-Private:") for x in loc_of_ref]
-    loc_of_reads = loc_of_reads.replace("/corral-repl/utexas/breseq/", "#=REFSEQ\tBarrickLab-Private:")
+    loc_of_reads = loc_of_reads.replace("/corral-repl/utexas/breseq/", "#=READSEQ\tBarrickLab-Private:")
     if args.trim:
         loc_of_adaptseq = args.trim
         loc_of_adaptseq = loc_of_adaptseq.replace("/corral-repl/utexas/breseq/", "#=ADAPTSEQ\tBarrickLab-Private:")
-
-
 
 print "The following files are being written:"  # insert somthing here to warn people what gd files you are going to make
 
