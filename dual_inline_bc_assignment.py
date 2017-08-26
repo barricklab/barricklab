@@ -32,6 +32,10 @@ args = parser.parse_args()
 
 assert len(args.read_2_prefix) == 0, "sequence provided as read 2 prefix. This is not currently coded as we have no primers which cause this. on expected.tsv file read in, split IBC based on length, insert R2 between 1st and 2nd half. Additional changes to R2 slicing need to be made similar to that of R1 both in dictionary naming and read storing"
 
+def rchop(thestring, ending):
+  if thestring.endswith(ending):
+    return thestring[:-len(ending)]
+  return thestring
 
 def log(string_to_print, stdout_also=False):
     """
@@ -95,7 +99,7 @@ with open(args.expected, "r") as f:
             read_dict[line[1]] = []
         else:
             read_dict[line[1]] = {"_R1": [], "_R2": []}
-        output_dict[line[1]] = line[0].rstrip(".fastq")
+        output_dict[line[1]] = rchop(line[0], (".fastq"))
 if args.combine:
     read_dict[unknown] = []
 else:
