@@ -1,4 +1,4 @@
-#!/opt/apps/intel15/python/2.7.9/bin/python
+#!/usr/bin/env python
 __author__ = 'ded'
 """
 Script designed to read in dual internal barcode files, and output reads with internal barcodes stripped from reads.

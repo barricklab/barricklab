@@ -1,4 +1,4 @@
-#! /opt/apps/intel13/python/2.7.9/bin/python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
 Created on Wed Oct  9 10:52:06 2013
