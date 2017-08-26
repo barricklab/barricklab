@@ -25,8 +25,11 @@ parser.add_argument("-a", "--author", help="Your name.")
 parser.add_argument("-f", "--fastq", help="Absolute path to directory containing gzipped read files. Example: /corral-repl/utexas/breseq/genomes/utexas_gsaf/Project_###", required=True)
 parser.add_argument("-i", "--index", action='store_true', help="Index files exist in fastq directory, but should be ignored.")
 parser.add_argument("-r", "--reference", nargs='*', help="Absolute location and name of reference file. Example: /corral-repl/utexas/breseq/genomes/reference/REL606.6.gbk", default="None")
+parser.add_argument("-t", "--trim", help="Absolute location and name of file containing adaptersequences to be trimmed. Example: /corral-repl/utexas/breseq/genomes/adapters/illumina_truseq_6bp_dual_barcode_PE.fasta", default="None")
+
 parser.add_argument("-b", "--barricklab", action='store_true', help="Files are stored in barricklab location on corral.")
 parser.add_argument("-s", "--sra", action='store_true', help="Files are on the NCBI SRA archive.")
+
 parser.add_argument("-o", "--output", default="new_gd_files", help="Output directory for .gd files (will be created if it doesn't exist).")
 parser.add_argument("-v", "--verbose", action='store_true', help="Increase output")
 parser.add_argument("-m", "--meta", help="Optional meta data tsv file with headers. 'sample' required, any of the following allowed: 'population', 'time' (meaning generation), 'treatment', 'clone'")
@@ -50,10 +53,10 @@ if args.barricklab is not False and args.sra is not False:
     sys.exit(1)
 
 # Check that absolute paths for fastq and reference files are used.
-root_warn = [re.search("^/", args.fastq)] + [re.search("None|^/", ref_warn_check) for ref_warn_check in args.reference]
+root_warn = [re.search("^/", args.fastq)] + [re.search("None|^/|http", ref_warn_check) for ref_warn_check in args.reference]
 if root_warn.count(None):
     parser.print_help()
-    print "\n\n!!!!!!!!!!!!!!!WARNING!!!!!!!!!!!!!!!\nPlease specify fastq directory and/or reference file from root.\n"
+    print "\n\n!!!!!!!!!!!!!!!WARNING!!!!!!!!!!!!!!!\nPlease specify fastq directory and/or reference file from root or reference from web.\n"
     print "\n".join(map(str, [args.fastq] + args.reference))
     print "^ Should be a '/' mark, please make appropriate changes"
     sys.exit(1)
@@ -161,12 +164,8 @@ for files in os.listdir(args.fastq):
                     #    sample_names[line[27]].append(line[0])
                     #except(KeyError):
 
-
-
 if len(sample_names) > 0:
     print str(len(sample_names)) + " samples lack meta data. " + str(sample_names.keys())
-
-
 
 if not os.path.exists(args.output):
     os.makedirs(args.output)
@@ -174,27 +173,28 @@ if not os.path.exists(args.output):
 loc_of_ref = args.reference
 loc_of_reads = args.fastq
 if args.barricklab:
-#    loc_of_ref = loc_of_ref.replace("/home/lab/", "")
-#    loc_of_reads = loc_of_reads.replace("/home/lab", "")
-    loc_of_ref = [x.replace("/corral-repl/utexas/breseq/", "") for x in loc_of_ref]
-    loc_of_reads = loc_of_reads.replace("/corral-repl/utexas/breseq/", "")
-
+    loc_of_ref = [x.replace("/corral-repl/utexas/breseq/", "#=REFSEQ\tBarrickLab-Private:") for x in loc_of_ref]
+    loc_of_reads = loc_of_reads.replace("/corral-repl/utexas/breseq/", "#=READSEQ\tBarrickLab-Private:")
+    if args.trim:
+        loc_of_adaptseq = args.trim
+        loc_of_adaptseq = loc_of_adaptseq.replace("/corral-repl/utexas/breseq/", "#=ADAPTSEQ\tBarrickLab-Private:")
 
 print "The following files are being written:"  # insert somthing here to warn people what gd files you are going to make
 
 for sample in master_dict:
     file_name = "%s/%s.gd" % (args.output.rstrip("/"), sample)
     print "\t", file_name
-    with open(file_name, "a") as output:
-        print>>output, "#=GENOME_DIFF 1.0"
-        print>>output, "#=AUTHOR\t%s" % args.author
-        for thing in master_dict[sample]:
-            if thing[0] == 'READSEQ':
-                print>>output, "#=READSEQ\tBarrickLab-Private:%s/%s" % (loc_of_reads, thing[1])
-            else:
-                print>>output, "#=%s\t%s" % (thing[0], thing[1])
-        for ref_loc in loc_of_ref:
-            print>>output, "#=REFSEQ\tBarrickLab-Private:%s" % ref_loc
+    # 6-9-17 WHY does this comment bloc exist? seems to duplicate
+    # with open(file_name, "a") as output:
+    #     print>>output, "#=GENOME_DIFF 1.0"
+    #     print>>output, "#=AUTHOR\t%s" % args.author
+    #     for thing in master_dict[sample]:
+    #         if thing[0] == 'READSEQ':
+    #             print>>output, "#=READSEQ\tBarrickLab-Private:%s/%s" % (loc_of_reads, thing[1])
+    #         else:
+    #             print>>output, "#=%s\t%s" % (thing[0], thing[1])
+    #     for ref_loc in loc_of_ref:
+    #         print>>output, "#=REFSEQ\tBarrickLab-Private:%s" % ref_loc
 
 for sample in sample_names:
     file_name = "%s/%s.gd" % (args.output.rstrip("/"), sample)
@@ -204,9 +204,15 @@ for sample in sample_names:
         print>>output, "#=AUTHOR\t%s" % args.author
         if args.barricklab:
             for ref_loc in loc_of_ref:
-                print>>output, "#=REFSEQ\tBarrickLab-Private:%s" % ref_loc
-            for entry in sample_names[sample]:
-                print>>output, "#=READSEQ\tBarrickLab-Private:%s/%s" % (loc_of_reads, entry)
+                if re.search("#=REFSEQ", ref_loc):
+                    print>>output, "%s" % ref_loc
+                else:
+                    print>>output, "#=REFSEQ\t%s" % ref_loc
+            if args.trim:
+                print>>output, "%s" % loc_of_adaptseq
+            for entry in sorted(sample_names[sample]):  # sorted so that R1 and R2 will alternate from same sample regardless of order read in
+                print>>output, "%s/%s" % (loc_of_reads, entry)
+
         elif args.sra:
             for ref_loc in loc_of_ref:
                 print>>output, "#=REFSEQ\tBarrickLab-Private:%s" % ref_loc  # currently requiring ref to be in private references ... this should be revisited
