@@ -24,8 +24,8 @@ parser = argparse.ArgumentParser(description="read in .fastq.gz file names, gene
 parser.add_argument("-a", "--author", help="Your name.")
 parser.add_argument("-f", "--fastq", help="Absolute path to directory containing gzipped read files. Example: /corral-repl/utexas/breseq/genomes/utexas_gsaf/Project_###", required=True)
 parser.add_argument("-i", "--index", action='store_true', help="Index files exist in fastq directory, but should be ignored.")
-parser.add_argument("-r", "--reference", nargs='*', help="Absolute location and name of reference file. Example: /corral-repl/utexas/breseq/genomes/reference/REL606.6.gbk", default="None")
-parser.add_argument("-t", "--trim", help="Absolute location and name of file containing adaptersequences to be trimmed. Example: /corral-repl/utexas/breseq/genomes/adapters/illumina_truseq_6bp_dual_barcode_PE.fasta", default="None")
+parser.add_argument("-r", "--reference", nargs='*', help="Absolute location and name of reference file. Example: /corral-repl/utexas/breseq/genomes/reference/REL606.6.gbk", default=None)
+parser.add_argument("-t", "--trim", help="Absolute location and name of file containing adaptersequences to be trimmed. Example: /corral-repl/utexas/breseq/genomes/adapters/illumina_truseq_6bp_dual_barcode_PE.fasta", default=None)
 
 parser.add_argument("-b", "--barricklab", action='store_true', help="Files are stored in barricklab location on corral.")
 parser.add_argument("-s", "--sra", action='store_true', help="Files are on the NCBI SRA archive.")
