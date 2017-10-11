@@ -1,3 +1,7 @@
+#Expected input csv file format:
+    #Columns corresponding to strains
+    #Selective plate counts above Nonselective plate counts
+    #"Non_Selective" must exist as its own entry in each column above nonselective plate counts
 #load necessary libraries
 library(rsalvador)
 library(tidyverse)
