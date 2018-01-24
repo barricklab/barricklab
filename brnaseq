@@ -16,6 +16,14 @@ Pipeline for mapping short reads to a genome and counting the number overlapping
 If you have paired-end sequencing data, two filenames that contain _R1 and _R2 but are otherwise 
 identical are expected and these must be one after another in the list of read files.
 
+Trimming note: if you are using gdtools RUNFILE for trimming and have paired-end data
+you should use the 'trimmomatic-PE-unique' mode with the --preserve-pairs option. This 
+ensures that (1) the files of read pairs are actually pairs and (2) each read *pair*, 
+rather than read, only gets counted once.
+
+Run this command on all samples for brnaseq to work correctly:
+brnaseq -j 16 -g 01_Data/<sample>.gd -o 03_Output/<sample> -r 02_Downloads/REL606.gff `ls 02_Trimmed/<sample>*` &> 04_Logs/<sample>.log
+
 Usage: brnaseq FINISH [-d 03_Output] [-o final_output]
 
 Alternative usage to compile all output into one set of files
@@ -32,6 +40,11 @@ Output path.
 
 Reference sequence file. Should be in either Genbank or GFF3 format.
 Multiple reference files can be provided by using this option more than once.
+
+=item B<--reverse|-2>
+
+Normally R1 is assumed to be the genomic strand for counting reads overlapping features. 
+Setting this option makes R2 the genomic strand.
 
 =item B<--genome-diff|-g> <path/to/genome_diff/file> 
 
@@ -244,12 +257,13 @@ if ("\U$ARGV[0]" eq "FINISH") {
 
 my ($help, $man);
 my (@reference_files);
-my ($output_path, $genome_diff_file, $num_threads, $keep_intermediates);
+my ($output_path, $R2_strand, $genome_diff_file, $num_threads, $keep_intermediates);
 pod2usage(1) if (scalar @ARGV == 0);
 GetOptions(
 	'help|?' => \$help, 'man' => \$man,
 	'output|o=s' => \$output_path,
 	'genome-diff|g=s' => \$genome_diff_file,
+	'reverse|2' => \$R2_strand,
 	'reference|r=s' => \@reference_files,
 	'threads|j=s' => \$num_threads,
 	'keep-intermediates|k' => \$keep_intermediates
@@ -332,10 +346,17 @@ run_command($bowtie2_paired_command);
 run_command($bowtie2_unpaired_1_command);
 run_command($bowtie2_unpaired_2_command);
 
-run_command("htseq-count -t gene -i ID -f sam -r name $output_path/aligned.paired.sam  $output_path/reference.gff3 > $output_path/counts.paired.tsv");
-run_command("htseq-count -t gene -i ID -f sam -r name $output_path/aligned.unpaired_1.sam  $output_path/reference.gff3 > $output_path/counts.unpaired_1.tsv");
-## Must reverse read two direction so that it is on the sequenced strand!
-run_command("htseq-count -s reverse -t gene -i ID -f sam -r name $output_path/aligned.unpaired_2.sam  $output_path/reference.gff3 > $output_path/counts.unpaired_2.tsv");
+if (!defined $R2_strand) {
+  run_command("htseq-count -t gene -i ID -f sam -r name $output_path/aligned.paired.sam  $output_path/reference.gff3 > $output_path/counts.paired.tsv");
+  run_command("htseq-count -t gene -i ID -f sam -r name $output_path/aligned.unpaired_1.sam  $output_path/reference.gff3 > $output_path/counts.unpaired_1.tsv");
+  ## Must reverse read two direction so that it is on the sequenced strand!
+  run_command("htseq-count -s reverse -t gene -i ID -f sam -r name $output_path/aligned.unpaired_2.sam  $output_path/reference.gff3 > $output_path/counts.unpaired_2.tsv");
+} else {
+  run_command("htseq-count -s reverse -t gene -i ID -f sam -r name $output_path/aligned.paired.sam  $output_path/reference.gff3 > $output_path/counts.paired.tsv");
+  run_command("htseq-count -s reverse -t gene -i ID -f sam -r name $output_path/aligned.unpaired_1.sam  $output_path/reference.gff3 > $output_path/counts.unpaired_1.tsv");
+  ## Must reverse read two direction so that it is on the sequenced strand!
+  run_command("htseq-count -t gene -i ID -f sam -r name $output_path/aligned.unpaired_2.sam  $output_path/reference.gff3 > $output_path/counts.unpaired_2.tsv");
+}
 
 run_command("rm $output_path/reference* $output_path/aligned*") if (!defined $keep_intermediates);
 
