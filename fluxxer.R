@@ -97,7 +97,8 @@ plot <- ggplot(data_output, aes(x = strain, y = MLE)) +
   ggtitle("Mutation Rates") + 
   xlab("Strains") +
   ylab("Mutation rate MLE") +
-  annotation_logticks(sides = "l")
+  annotation_logticks(sides = "l")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
 
 save_plot(paste0(out_pfx, "_chart.pdf"), plot)
 
