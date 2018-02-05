@@ -18,6 +18,8 @@ steps:
         3. first consideration eliminates the possible existence of secondary reads, therefore disable their mapping // -N 0
         4. happlotypes do not exist within MI, therefore disable // -H
         5. this assumed to be run on stampede, use maximal processors. currently set to 16 potential sight of softcode/dynamic choice // -p 16
+        6. Keep highly represented sequences // --keep_high_cov
+        7. Each sample required to have unique ID, as only running single sample at time, force all to standard 1 // -i 1  #TODO consider larger script to deal with multiples
     5. read in .tags.tsv file
         1. primary sequence names represent F/R reads
         2. store in  dictionary of dict ={F:[read name, read name, etc], R: [read name, read name]}
@@ -25,7 +27,7 @@ steps:
         4. on each consensus, if length of either F or R list is greater than 1, generate consensus sequence.
     6. write output statistics to global log file
         1. figure out how to access singe file from multiple processes. need check to make sure is quickly appending and then closing the file and maybe some kind of wait/repeat if something returns error?
-for gdname in 01_Data/*.gd;do name=$(echo $gdname|sed 's/.gd//'|sed 's/01_Data\///');echo "sscs_with_stacks_v3.py -f1 02_Downloads/$name*_R1_* -f2 02_Downloads/$name*_R2_* -p $name";done > commands
+for gdname in 01_Data/*.gd;do name=$(echo $gdname|sed 's/.gd//'|sed 's/01_Data\///');echo "consensus_reads_with_stacks.py -f1 02_Downloads/$name*_R1_* -f2 02_Downloads/$name*_R2_* -p $name";done > commands
 version:
 2->3
     changes to consensus reads, not sscs/dcs. This means that all reads with same MI (regardless of R1/R2) will be combined to generate consensus
@@ -130,6 +132,8 @@ def tag_parser():
             # assert not os.path.isfile(args.prefix + ".dcs.fastq"), "DCS selected, but DCS file already exists, please move, remove, or rename existing file %s.dcs.fastq" % args.prefix
         for line in tags_in:
             line = line.rstrip().split("\t")
+            if re.match("^#", line[0]):
+                continue  # ustacks V 1.48 has header line at top
             if re.match("model", line[6]):
                 continue  # not doing anything with model lines
             elif re.match("consensus", line[6]):
@@ -195,7 +199,7 @@ assert not os.path.isfile(args.prefix + ".fasta"), "fasta file already found"  #
 with open(args.prefix + ".fasta", "w") as fasta_out:
     paired_end_fastq_read_in(args.fastq1, args.fastq2)
 
-stacks_command = ["ustacks", "-t", "fasta", "-f", str(args.prefix) + ".fasta", "-m", "1", "-M", "1", "-N", "0", "-H", "-p", "16"]
+stacks_command = ["ustacks", "-t", "fasta", "-f", str(args.prefix) + ".fasta", "-m", "1", "-M", "1", "-N", "0", "-H", "-p", "16", "--keep_high_cov", "-i", "1"]
 external_stacks_call = subprocess.Popen(stacks_command, stdout=open(args.prefix + ".log.txt", "a"), stderr=open(args.prefix + ".log.txt", "a"))
 external_stacks_call.wait()
 
