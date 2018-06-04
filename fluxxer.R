@@ -1,7 +1,3 @@
-#Expected input csv file format:
-    #Columns corresponding to strains
-    #Selective plate counts above Nonselective plate counts
-    #"Non_Selective" must exist as its own entry in each column above nonselective plate counts
 #load necessary libraries
 library(rsalvador)
 library(tidyverse)
@@ -10,98 +6,125 @@ library(optparse)
 
 option_list = list(
   make_option(c("-i", "--input"), type="character", default=NULL, 
-              help="input file name", metavar="character"),
-  make_option(c("-o", "--out"), type="character", default=NULL, 
-              help="output file prefix", metavar="character"),
-  make_option(c("-p", "--volumeplated"), type = "integer", default = 50, 
-                help="volume (in microliters) plated, default is 50"),
-  make_option(c("-v", "--originalvolume"), type = "integer", default = 200, 
-                help="original volume (in microliters), default is 200"),
-  make_option(c("-d", "--dilutionfactor"), type = "double", default = 2e-6, 
-                help="dilution factor, default is 2e-6")
+              help="input CSV file name", metavar="character"),
+  make_option(c("-o", "--output"), type="character", default=NULL, 
+              help="output file prefix", metavar="character")
+  )
+  
+usage_string = paste(
+  "Input CSV must be in a tidy format with one plate count per line and the column ", 
+  "headings: strain, plate, fraction, and CFU\n\n",
+  "The columns must contain:\n",
+  "  strain: name of the strain tested\n",
+  "  plate: the type of plate count, either {selective|s} or {nonselective|count|ns}\n",
+  "  fraction: the fraction of the culture that was plated\n",
+  "  CFU: the number of colonies counted on the plate\n",
+  "\n\nFraction should generally be 1 for the selective plates (if you plated the entire culture.",
+  "For the nonselective (count) plates it should be equal to the ratio of the volume plated (P) to the culture volume (C) ",
+  "divided by the dilution factor (D), or Fraction = P/(C*D). As an example, if you had 200 µl cultures and plated 100 µl ",
+  "of a million-fold 1E6 dilution, then Fraction = 5E–7.",
+  sep = ""
+) 
 
-  ); 
-
-opt_parser = OptionParser(option_list=option_list);
+opt_parser = OptionParser(usage=usage_string, option_list=option_list);
 opt = parse_args(opt_parser);
 
-if (is.null(opt$input)){
+if (is.null(opt$input)) {
   print_help(opt_parser)
-  stop("Supply -i argument for input file", call.=FALSE)
+  stop("Supply -i argument for input CSV file", call.=FALSE)
 }
 
-#confidence interval function
-confind <- function(x, y){
-  S <- as.vector(x)
-  NS <- as.vector(y)
-  return(confint.LD(S, alpha=0.05)/NS[1])
-}
-
-#golden.benchmark.LD function for calculating mutation rate
-golden <- function(x, y){
-  #S <- as.vector(x)
-  #NS <- as.vector(y)
-  return(golden.benchmark.LD(x, y, tol = 1e-09, max.iter = 100, show.iter = FALSE))
-}
-
-
-calculateMutRate <- function(filename, vol_plated = 50, dilution_factor = 2e-6, original_volume = 200, out_pfx ){
-
-
+calculateMutRate <- function(filename, output_prefix)
+{
+  
   #read in file specified. Must be in same directory
   #for testing
   #data <- read_csv("example_dataset_2.csv") 
-  data <- read_csv(filename)
-  #extract sample names
-  strains <- colnames(data)
+  data = read_csv(filename)  
+  
+  #do some checks of the input files to expand abbreviations
+  data$plate = tolower(data$plate)
+  mutate(data, plate = ifelse(plate == "n" | plate == "count", "nonselective", plate))
+  mutate(data, plate = ifelse(plate == "s", "selective", plate))
+  
+  data$strain = as.factor(data$strain)
+  data$plate = as.factor(data$plate)
+
+  strains = levels(data$strain)
   
   #identify # of strains, use to build empty data frame
   num_strains <- length(strains)
-  data_output <- tibble(strain = rep("", num_strains), MLE = rep(0, num_strains), confint.lower = rep(0, num_strains), confint.higher = rep(0, num_strains))
-
-#cycle through each column to calculate mutatation rate and confidence  
-for(i in 1:length(strains)){
-  #locate Non_selective separator
-  sep <- which(data[,i] == "Non_Selective")
+  cat("Found", num_strains, "strains:\n")
+  cat(paste(strains, sep=", "), "\n\n")
   
-  #extract selective values
-  selective <- as.numeric(data[1:sep-1, i][[1]])
-  selective <- selective[!is.na(selective)]
-  #extract non selective values
-  raw_non_selective <- as.numeric(data[-(1:sep), i][[1]])
-  per_non_selective <- ((mean(raw_non_selective, na.rm = TRUE) / vol_plated) / dilution_factor ) * original_volume
+  output_data <- tibble()
   
-  #calculate non selective based on dilution factor (placeholder till correct calculation implemented)
-  #match length of nonselective to selective values
-  non_selective <- rep(per_non_selective, length(selective))
-  print(selective)
-  print(non_selective)
-  print(strains[i])
-  values <- c(strains[i], golden(selective, non_selective), confind(selective, non_selective))
-  data_output[i,] <- values
+  #cycle through each column to calculate mutatation rate and confidence  
+  for(this.strain in strains) {
+    cat("\nSTRAIN:", this.strain, "\n")
+    #locate Non_selective separator
+    this.strain.data = data %>% filter(strain==this.strain)
+
+    #extract selective values
+    selective.rows = this.strain.data %>% filter(plate=="selective")
+    nonselective.rows = this.strain.data %>% filter(plate=="nonselective")
+    num_selective = nrow(selective.rows)
+    num_nonselective = nrow(nonselective.rows)
+    
+    cat("Number of selective plate counts:", num_selective, "\n") 
+    cat("Number of nonselective plate counts:", num_nonselective, "\n")
+    
+    
+    if (num_selective == 0 || num_nonselective == 0 ) {
+      cat("***ERROR! Did not find plate counts for selective/nonselective. Skipping strain.\n")
+    }
+    
+    nonselective_cell_counts = mean(nonselective.rows$CFU/nonselective.rows$fraction)
+    cat("Estimated cells per culture:", nonselective_cell_counts, "(", nrow(nonselective.rows), "nonselective plates )\n")
+    
+    #all selective plates must have the same fraction
+    selective_fraction_list = selective.rows %>% count(fraction)
+    if (nrow(selective_fraction_list) > 1) {
+      cat("***ERROR! Multiple fractions found for selective plates. Skipping strain.\n")
+      next
+    }
+    selective_fraction = selective_fraction_list$fraction[1]
+    cat("Fraction or efficiency of selective cultures plated (e):", selective_fraction, "\n")
+    
+    if (selective_fraction == 1) {
+      m = newton.LD(selective.rows$CFU)
+    } else {
+      m = newton.LD.plating(selective.rows$CFU, e=selective_fraction)
+    }
+    
+    mu = m / nonselective_cell_counts
+    cat("Maximum likelihood mutation rate (mu):", mu, "\n")
+    
+    if (selective_fraction == 1) {
+      CI = confint.LD(selective.rows$CFU, alpha=0.05)/nonselective_cell_counts
+    } else {
+      CI = confint.LD(selective.rows$CFU, alpha=0.05, e=selective_fraction)/nonselective_cell_counts
+    }
+    cat("         95% confidence interval (mu): [", CI[1], ",", CI[2] , "]\n")
+    
+    output_data = rbind(output_data, data.frame(strain = this.strain, num_nonselective = num_nonselective, num_selective = num_selective, selecive_fraction = selective_fraction, mu = mu, CI.95.lower = CI[1], CI.95.higher = CI[2]))
+
+  }
+  
+  write_csv(output_data, paste0(output_prefix,".output.csv"))
+  ##make chart for pretty values
+  plot <- ggplot(output_data, aes(x = strain, y = mu)) +
+    geom_point() +
+    geom_linerange(aes(ymin = CI.95.lower, ymax = CI.95.higher)) +
+    scale_y_log10() + 
+    ggtitle("Mutation Rates") + 
+    xlab("Strains") +
+    ylab("Mutation rate MLE") +
+    annotation_logticks(sides = "l")+
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+  
+  save_plot(paste0(output_prefix, ".plot.pdf"), plot)
+  
 }
-##write data frame to output csv
-data_output$MLE <- as.numeric(data_output$MLE)
-data_output$confint.lower <- as.numeric(data_output$confint.lower)
-data_output$confint.higher <- as.numeric(data_output$confint.higher)
-data_output$strain <- factor(data_output$strain, strains)
 
-
-print(data_output)
-write_csv(data_output, paste0(out_pfx,"_output.csv"))
-##make chart for pretty values
-plot <- ggplot(data_output, aes(x = strain, y = MLE)) +
-  geom_point() +
-  geom_linerange(aes(ymin = confint.lower, ymax = confint.higher)) +
-  scale_y_log10() + 
-  ggtitle("Mutation Rates") + 
-  xlab("Strains") +
-  ylab("Mutation rate MLE") +
-  annotation_logticks(sides = "l")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
-
-save_plot(paste0(out_pfx, "_chart.pdf"), plot)
-
-}
-
-calculateMutRate(filename = opt$input, vol_plated = opt$volumeplated, dilution_factor = opt$dilutionfactor, original_volume = opt$originalvolume, out_pfx = opt$out)
+calculateMutRate(filename = opt$input, output_prefix = opt$output)
