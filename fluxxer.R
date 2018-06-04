@@ -1,8 +1,10 @@
+#!/usr/bin/env Rscript
+
 #load necessary libraries
-library(rsalvador)
-library(tidyverse)
-library(cowplot)
-library(optparse)
+suppressMessages(library(rsalvador))
+suppressMessages(library(tidyverse))
+suppressMessages(library(cowplot))
+suppressMessages(library(optparse))
 
 option_list = list(
   make_option(c("-i", "--input"), type="character", default=NULL, 
@@ -12,17 +14,18 @@ option_list = list(
   )
   
 usage_string = paste(
+  "fluxxer.R -i input.csv -o output_prefix\n\n",
   "Input CSV must be in a tidy format with one plate count per line and the column ", 
   "headings: strain, plate, fraction, and CFU\n\n",
   "The columns must contain:\n",
   "  strain: name of the strain tested\n",
   "  plate: the type of plate count, either {selective|s} or {nonselective|count|ns}\n",
   "  fraction: the fraction of the culture that was plated\n",
-  "  CFU: the number of colonies counted on the plate\n",
-  "\n\nFraction should generally be 1 for the selective plates (if you plated the entire culture.",
+  "  CFU: the number of colonies counted on the plate\n\n",
+  "Fraction should generally be 1 for the selective plates (if you plated the entire culture. ",
   "For the nonselective (count) plates it should be equal to the ratio of the volume plated (P) to the culture volume (C) ",
   "divided by the dilution factor (D), or Fraction = P/(C*D). As an example, if you had 200 µl cultures and plated 100 µl ",
-  "of a million-fold 1E6 dilution, then Fraction = 5E–7.",
+  "of a million-fold (1E6) dilution, then Fraction = 5E–7.",
   sep = ""
 ) 
 
