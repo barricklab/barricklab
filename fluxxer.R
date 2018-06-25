@@ -47,8 +47,8 @@ calculateMutRate <- function(filename, output_prefix)
   
   #do some checks of the input files to expand abbreviations
   data$plate = tolower(data$plate)
-  mutate(data, plate = ifelse(plate == "n" | plate == "count", "nonselective", plate))
-  mutate(data, plate = ifelse(plate == "s", "selective", plate))
+  data = mutate(data, plate = ifelse( (plate == "n") | (plate == "ns") | (plate == "count"), "nonselective", plate))
+  data = mutate(data, plate = ifelse(plate == "s", "selective", plate))
   
   data$strain = as.factor(data$strain)
   data$plate = as.factor(data$plate)
@@ -106,11 +106,11 @@ calculateMutRate <- function(filename, output_prefix)
     if (selective_fraction == 1) {
       CI = confint.LD(selective.rows$CFU, alpha=0.05)/nonselective_cell_counts
     } else {
-      CI = confint.LD(selective.rows$CFU, alpha=0.05, e=selective_fraction)/nonselective_cell_counts
+      CI = confint.LD.plating(selective.rows$CFU, alpha=0.05, e=selective_fraction)/nonselective_cell_counts
     }
     cat("         95% confidence interval (mu): [", CI[1], ",", CI[2] , "]\n")
     
-    output_data = rbind(output_data, data.frame(strain = this.strain, num_nonselective = num_nonselective, num_selective = num_selective, selecive_fraction = selective_fraction, mu = mu, CI.95.lower = CI[1], CI.95.higher = CI[2]))
+    output_data = rbind(output_data, data.frame(strain = this.strain, num_nonselective = num_nonselective, num_selective = num_selective, selective_fraction = selective_fraction, mu = mu, CI.95.lower = CI[1], CI.95.higher = CI[2]))
 
   }
   
