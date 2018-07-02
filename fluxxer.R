@@ -22,10 +22,14 @@ usage_string = paste(
   "  plate: the type of plate count, either {selective|s} or {nonselective|count|ns}\n",
   "  fraction: the fraction of the culture that was plated\n",
   "  CFU: the number of colonies counted on the plate\n\n",
-  "Fraction should generally be 1 for the selective plates (if you plated the entire culture. ",
-  "For the nonselective (count) plates it should be equal to the ratio of the volume plated (P) to the culture volume (C) ",
-  "divided by the dilution factor (D), or Fraction = P/(C*D). As an example, if you had 200 µl cultures and plated 100 µl ",
-  "of a million-fold (1E6) dilution, then Fraction = 5E–7.",
+  "Fraction should generally be 1 for the selective plates (if you plated the entire culture).\n\n",
+  "Fraction for the nonselective (count) plates should be equal to the ratio of the volume plated (P) ",
+  "to the culture volume (C) divided by the dilution factor (D), or Fraction = P/(C*D).\n\n",
+  "As an example, if you had 200 µl cultures and put the entire volume into 10 ml of saline in a ",
+  "first dilution tube, then transferred 1 µl from this tube to another 10 ml in a second dilution ",
+  "tube, and finally plated and counted the number of cells in 50 µl of this second dilution tube: ",
+  "P = 50 µl, C = 200 µL, and D = (200 µl / 10,000 µl) * (1 µl / 10,000 µl) = 2E-6. ",
+  "Therefore, Fraction = 50 µl / (200 µL * 2E-6) = 5E–7",
   sep = ""
 ) 
 
