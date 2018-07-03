@@ -9,7 +9,7 @@ suppressMessages(library(optparse))
 option_list = list(
   make_option(c("-i", "--input"), type="character", default=NULL, 
               help="input CSV file name", metavar="character"),
-  make_option(c("-o", "--output"), type="character", default=NULL, 
+  make_option(c("-o", "--output"), type="character", default="", 
               help="output file prefix", metavar="character")
   )
   
@@ -44,6 +44,10 @@ if (is.null(opt$input)) {
 calculateMutRate <- function(filename, output_prefix)
 {
   
+  if ((output_prefix!= "") && !grepl('[./]$', output_prefix)) {
+    output_prefix = paste0(output_prefix, ".")
+  }
+  
   #read in file specified. Must be in same directory
   #for testing
   #data <- read_csv("example_dataset_2.csv") 
@@ -62,7 +66,7 @@ calculateMutRate <- function(filename, output_prefix)
   #identify # of strains, use to build empty data frame
   num_strains <- length(strains)
   cat("Found", num_strains, "strains:\n")
-  cat(paste(strains, sep=", "), "\n\n")
+  cat(strains, sep='\n')
   
   output_data <- tibble()
   
@@ -114,11 +118,11 @@ calculateMutRate <- function(filename, output_prefix)
     }
     cat("         95% confidence interval (mu): [", CI[1], ",", CI[2] , "]\n")
     
-    output_data = rbind(output_data, data.frame(strain = this.strain, num_nonselective = num_nonselective, num_selective = num_selective, selective_fraction = selective_fraction, mu = mu, CI.95.lower = CI[1], CI.95.higher = CI[2]))
+    output_data = rbind(output_data, data.frame(strain = this.strain, num_nonselective_plates = num_nonselective, num_selective_plates = num_selective, selective_fraction = selective_fraction, avg_cells_per_culture = nonselective_cell_counts, mu = mu, CI.95.lower = CI[1], CI.95.higher = CI[2]))
 
   }
   
-  write_csv(output_data, paste0(output_prefix,".output.csv"))
+  write_csv(output_data, paste0(output_prefix,"output.csv"))
   ##make chart for pretty values
   plot <- ggplot(output_data, aes(x = strain, y = mu)) +
     geom_point() +
@@ -130,7 +134,7 @@ calculateMutRate <- function(filename, output_prefix)
     annotation_logticks(sides = "l")+
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
   
-  save_plot(paste0(output_prefix, ".plot.pdf"), plot)
+  save_plot(paste0(output_prefix, "plot.pdf"), plot)
   
 }
 
