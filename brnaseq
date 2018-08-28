@@ -21,12 +21,15 @@ you should use the 'trimmomatic-PE-unique' mode with the --preserve-pairs option
 ensures that (1) the files of read pairs are actually pairs and (2) each read *pair*, 
 rather than read, only gets counted once.
 
+You can generate a commands file for trimming on TACC by using this gdtools command:
+$ gdtools runfile -m trimmomatic-PE-unique --preserve-pairs
+
 Run this command on all samples for brnaseq to work correctly:
 brnaseq -j 16 -g 01_Data/<sample>.gd -o 03_Output/<sample> -r 02_Downloads/REL606.gff `ls 02_Trimmed/<sample>*` &> 04_Logs/<sample>.log
 
 Usage: brnaseq FINISH [-d 03_Output] [-o final_output]
 
-Alternative usage to compile all output into one set of files
+Usage to collate output from multiple samples into one set of output spreadsheets.
 
 =head1 DESCRIPTION
 
@@ -313,17 +316,23 @@ run_command("bowtie2-build $output_path/reference.fna $output_path/reference");
 ##-k 1 option means to stop after one match, makes things much faster, but should compare to leaving option OFF
 
 # Run bowtie2 thrice, once for paired and once for each unpaired direction
+my $has_pairs = 0;
 my $bowtie2_paired_command = "bowtie2 --no-unal -k 1 -p $num_threads -x $output_path/reference ";
 
 foreach my $paired_read_files (@paired_read_files) {
 	my @this_read_pair_list = @$paired_read_files;
 	
 	if (scalar @this_read_pair_list == 2) {
+	  $has_pairs = 1;
 		$bowtie2_paired_command .= " -1 $this_read_pair_list[0]";
 		$bowtie2_paired_command .= " -2 $this_read_pair_list[1]";
 	}
 }
 $bowtie2_paired_command .= " -S $output_path/aligned.paired.sam";
+
+#Unpaired reads make their way into the unpaired_1 file
+my $has_unpaired_1 = 0;
+my $has_unpaired_2 = 0;
 
 my $bowtie2_unpaired_1_command = "bowtie2 --no-unal -k 1 -p $num_threads -x $output_path/reference ";
 my $bowtie2_unpaired_2_command = "bowtie2 --no-unal -k 1 -p $num_threads -x $output_path/reference ";
@@ -332,38 +341,95 @@ foreach my $paired_read_files (@paired_read_files) {
 	my @this_read_pair_list = @$paired_read_files;
 	
 	if (scalar @this_read_pair_list == 1) {
-		if ( $this_read_pair_list[0] =~ m/_U1/ ) {
-			$bowtie2_unpaired_1_command .= " -U $this_read_pair_list[0]";
-		} elsif ( $this_read_pair_list[0] =~ m/_U2/ ) {
-			$bowtie2_unpaired_2_command .= " -U $this_read_pair_list[0]";
-		}
-	}
+# Old code supporting only paired files
+#		if ( $this_read_pair_list[0] =~ m/_U1/ ) {
+#			$bowtie2_unpaired_1_command .= " -U $this_read_pair_list[0]";
+#		} elsif ( $this_read_pair_list[0] =~ m/_U2/ ) {
+#			$bowtie2_unpaired_2_command .= " -U $this_read_pair_list[0]";
+#		}
+
+    if ( $this_read_pair_list[0] =~ m/_U2/ ) {
+      $has_unpaired_2 = 1;
+      $bowtie2_unpaired_2_command .= " -U $this_read_pair_list[0]";
+    } else {
+      $has_unpaired_1 = 1;
+      $bowtie2_unpaired_1_command .= " -U $this_read_pair_list[0]";
+    }
+  }
 }
 $bowtie2_unpaired_1_command .= " -S $output_path/aligned.unpaired_1.sam";
 $bowtie2_unpaired_2_command .= " -S $output_path/aligned.unpaired_2.sam";
 
-run_command($bowtie2_paired_command);
-run_command($bowtie2_unpaired_1_command);
-run_command($bowtie2_unpaired_2_command);
+if ($has_pairs) {
+  run_command($bowtie2_paired_command);
+}
+if ($has_unpaired_1) {
+  run_command($bowtie2_unpaired_1_command);
+}
+if ($has_unpaired_2) {
+  run_command($bowtie2_unpaired_2_command);
+}
+
+
 
 if (!defined $R2_strand) {
-  run_command("htseq-count -t gene -i ID -f sam -r name $output_path/aligned.paired.sam  $output_path/reference.gff3 > $output_path/counts.paired.tsv");
-  run_command("htseq-count -t gene -i ID -f sam -r name $output_path/aligned.unpaired_1.sam  $output_path/reference.gff3 > $output_path/counts.unpaired_1.tsv");
-  ## Must reverse read two direction so that it is on the sequenced strand!
-  run_command("htseq-count -s reverse -t gene -i ID -f sam -r name $output_path/aligned.unpaired_2.sam  $output_path/reference.gff3 > $output_path/counts.unpaired_2.tsv");
+
+  if ($has_pairs) {
+    run_command("htseq-count -t gene -i ID -f sam -r name $output_path/aligned.paired.sam  $output_path/reference.gff3 > $output_path/counts.paired.tsv");
+  }
+  
+  if ($has_unpaired_1) {
+    run_command("htseq-count -t gene -i ID -f sam -r name $output_path/aligned.unpaired_1.sam  $output_path/reference.gff3 > $output_path/counts.unpaired_1.tsv");
+  }
+  
+  if ($has_unpaired_2) {
+    ## Must reverse read two direction so that it is on the sequenced strand!
+    run_command("htseq-count -s reverse -t gene -i ID -f sam -r name $output_path/aligned.unpaired_2.sam  $output_path/reference.gff3 > $output_path/counts.unpaired_2.tsv");
+  }
+  
+
 } else {
-  run_command("htseq-count -s reverse -t gene -i ID -f sam -r name $output_path/aligned.paired.sam  $output_path/reference.gff3 > $output_path/counts.paired.tsv");
-  run_command("htseq-count -s reverse -t gene -i ID -f sam -r name $output_path/aligned.unpaired_1.sam  $output_path/reference.gff3 > $output_path/counts.unpaired_1.tsv");
-  ## Must reverse read two direction so that it is on the sequenced strand!
-  run_command("htseq-count -t gene -i ID -f sam -r name $output_path/aligned.unpaired_2.sam  $output_path/reference.gff3 > $output_path/counts.unpaired_2.tsv");
+
+  if ($has_pairs) {
+    run_command("htseq-count -s reverse -t gene -i ID -f sam -r name $output_path/aligned.paired.sam  $output_path/reference.gff3 > $output_path/counts.paired.tsv");
+  }
+  
+  if ($has_unpaired_1) {
+    run_command("htseq-count -s reverse -t gene -i ID -f sam -r name $output_path/aligned.unpaired_1.sam  $output_path/reference.gff3 > $output_path/counts.unpaired_1.tsv");
+  }
+  
+  if ($has_unpaired_2) {
+    ## Must reverse read two direction so that it is on the sequenced strand!
+    run_command("htseq-count -t gene -i ID -f sam -r name $output_path/aligned.unpaired_2.sam  $output_path/reference.gff3 > $output_path/counts.unpaired_2.tsv");
+  }
 }
 
 run_command("rm $output_path/reference* $output_path/aligned*") if (!defined $keep_intermediates);
 
+
+
 ## combine the two output files into a final counts.tsv
-open PAIRED_FILE, "<$output_path/counts.paired.tsv";
-open UNPAIRED_1_FILE, "<$output_path/counts.unpaired_1.tsv";
-open UNPAIRED_2_FILE, "<$output_path/counts.unpaired_2.tsv";
+
+##We have to decide on a main file and auxiliary files
+my @file_handles;
+if ($has_pairs) {
+  my $paired_file_handle;
+  open $paired_file_handle, "<$output_path/counts.paired.tsv";
+  push @file_handles, $paired_file_handle;
+}
+
+if ($has_unpaired_1) {
+  my $unpaired_1_file_handle;
+  open $unpaired_1_file_handle, "<$output_path/counts.unpaired_1.tsv";
+  push @file_handles, $unpaired_1_file_handle;
+}
+
+if ($has_unpaired_2) {
+  my $unpaired_2_file_handle;
+  ## Must reverse read two direction so that it is on the sequenced strand!
+  open $unpaired_2_file_handle, "<$output_path/counts.unpaired_2.tsv";
+  push @file_handles, $unpaired_2_file_handle;
+}
 
 open FINAL_FILE, ">$output_path/counts.tsv";
 
@@ -373,18 +439,57 @@ $gd_file_base_name =~ s/\..+$//;
 
 print FINAL_FILE join("\t", ("gene", $gd_file_base_name)) . "\n";
 
-while (my $paired_line = <PAIRED_FILE>) {
-	my $unpaired_1_line = <UNPAIRED_1_FILE>;
-	my $unpaired_2_line = <UNPAIRED_2_FILE>;
+while (my $file_1_line =  readline($file_handles[0])) {
+  chomp $file_1_line;
+  my @file_1_line_list = split /\t/, $file_1_line;
+  my $summed_count = scalar($file_1_line_list[1]);
+  
+  if (scalar @file_handles > 1) {
+    my $file_2_line = readline($file_handles[1]);
+    chomp $file_2_line;
+    my @file_2_line_list = split /\t/, $file_2_line;
+    $summed_count += scalar($file_2_line_list[1]);
+  }
+  
+  if (scalar @file_handles > 2) {
+    my $file_3_line = readline($file_handles[2]);
+    chomp $file_3_line;
+    my @file_3_line_list = split /\t/, $file_3_line;
+    $summed_count += scalar($file_3_line_list[1]);
+  }
 
-	my @paired_line_list = split /\t/, $paired_line;
-	my @unpaired_1_line_list = split /\t/, $unpaired_1_line;
-	my @unpaired_2_line_list = split /\t/, $unpaired_2_line;
-
-	my $summed_count = scalar($paired_line_list[1]) + scalar($unpaired_1_line_list[1]) + scalar($unpaired_2_line_list[1]);
-
-	print FINAL_FILE join("\t", ($paired_line_list[0], $summed_count)) . "\n";
+	print FINAL_FILE join("\t", ($file_1_line_list[0], $summed_count)) . "\n";
 }
 
-run_command("rm $output_path/counts.paired.tsv $output_path/counts.unpaired_1.tsv $output_path/counts.unpaired_2.tsv") if (!defined $keep_intermediates);
 
+#old code
+#open PAIRED_FILE, "<$output_path/counts.paired.tsv";
+#open UNPAIRED_1_FILE, "<$output_path/counts.unpaired_1.tsv";
+#open UNPAIRED_2_FILE, "<$output_path/counts.unpaired_2.tsv";
+# 
+# open FINAL_FILE, ">$output_path/counts.tsv";
+# 
+# my $gd_file_base_name = $genome_diff_file;
+# $gd_file_base_name =~ s/^.+\///;
+# $gd_file_base_name =~ s/\..+$//;
+# 
+# print FINAL_FILE join("\t", ("gene", $gd_file_base_name)) . "\n";
+# 
+# while (my $paired_line = <PAIRED_FILE>) {
+# 	my $unpaired_1_line = <UNPAIRED_1_FILE>;
+# 	my $unpaired_2_line = <UNPAIRED_2_FILE>;
+# 
+# 	my @paired_line_list = split /\t/, $paired_line;
+# 	my @unpaired_1_line_list = split /\t/, $unpaired_1_line;
+# 	my @unpaired_2_line_list = split /\t/, $unpaired_2_line;
+# 
+# 	my $summed_count = scalar($paired_line_list[1]) + scalar($unpaired_1_line_list[1]) + scalar($unpaired_2_line_list[1]);
+# 
+# 	print FINAL_FILE join("\t", ($paired_line_list[0], $summed_count)) . "\n";
+# }
+
+ if (!defined $keep_intermediates) {
+  run_command("rm $output_path/counts.paired.tsv") if ($has_pairs);
+  run_command("rm $output_path/counts.unpaired_1.tsv") if ($has_unpaired_1);
+  run_command("rm $output_path/counts.unpaired_2.tsv") if ($has_unpaired_2);
+}
