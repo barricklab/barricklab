@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/env perl -w
 
 ###
 # Pod Documentation
@@ -12,26 +12,34 @@ batch_run.pl
 
 Usage: batch_run.pl "[command]"
 
-Run a command within each directory contained within the current directory. 
-Enclose the command in quotes. All appearances of '#d' in the command will
-be replaced with the name of the current directory.
+Run a command within each directory contained within the current directory
+(default more) or run a command for each file in a directory (if file mode used). 
+Enclose the command in quotes. All appearances of '#d' in the command will be 
+replaced with the name of the current directory/file. All appearances of '#e' 
+will be replaced by the name with all extensions removed.
+
+Type "perldoc batch_run.pl" or "batch_run.pl --man" for more detailed help!
 
 =head1 DESCRIPTION
 
 =over
 
-=item B<-p> <pattern> 
+=item B<-p,--pattern> <pattern> 
 
-Only execute in directories that match this regular expression.
-Directories beginning with a period '.' or underscore '_' are always ignored.
+Only execute for directories/files that match this regular expression.
+Names beginning with a period '.' or underscore '_' are always ignored.
+
+=item B<-0,--file> 
+
+File mode. Execute for each file in the current directory.
+
+=item B<-c,--command> 
+
+Alternate way of passing the command to be run as an option.
 
 =item B<-t> 
 
-Test mode. Print commands that would have been run.
-
-=item B<-c> 
-
-Alternate way of passing the command to be run.
+Test mode. Print commands that would have been run. Don't execute them.
 
 =back
 
@@ -41,7 +49,7 @@ Jeffrey Barrick
 
 =head1 COPYRIGHT
 
-Copyright 2006.  All rights reserved.
+Copyright 2018.  All rights reserved.
 
 =cut
 
@@ -66,7 +74,7 @@ GetOptions(
 	'command|c=s' => \$command,
 	'test|t' => \$test,
 	'pattern|p=s' => \$pattern,
-	'per-file|0' => \$per_file,
+	'file|0' => \$per_file,
 ) or pod2usage(2);
 pod2usage(1) if $help;
 pod2usage(-exitstatus => 0, -verbose => 2) if $man;
@@ -82,9 +90,8 @@ print "Current directory: $current\n";
 #Check out the directory that we are in for directories.
 opendir(DIR, $current);
 my @d = readdir DIR;
-@d = grep !/^\./, @d; #Skip underscore prefixed
 @d = grep !/^\./, @d; #Skip period prefixed
-@d = grep !/^_/, @d; #Skip period prefixed
+@d = grep !/^_/, @d; #Skip underscore prefixed
 @d = grep /\Q$pattern\E/, @d if $pattern;
 
 @d = grep {-d $_} @d if (!$per_file);
@@ -122,5 +129,3 @@ foreach my $d (@d)
 	}
 }
 
-
-#chdir
