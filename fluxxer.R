@@ -8,9 +8,11 @@ suppressMessages(library(optparse))
 
 option_list = list(
   make_option(c("-i", "--input"), type="character", default=NULL, 
-              help="input CSV file name", metavar="character"),
+              help="Input CSV file name", metavar="input.csv"),
   make_option(c("-o", "--output"), type="character", default="", 
-              help="output file prefix", metavar="character")
+              help="Output file prefix", metavar="output_prefix"),
+  make_option(c("-c", "--comparisons"), action="store_true", 
+              help="Perform comparisons between fluctuation tests. Results in the output of file comparisons.csv showing p-values for tests that mutation rates are significantly different between samples")
   )
   
 usage_string = paste(
@@ -41,7 +43,7 @@ if (is.null(opt$input)) {
   stop("Supply -i argument for input CSV file", call.=FALSE)
 }
 
-calculateMutRate <- function(filename, output_prefix)
+calculateMutRate <- function(filename, output_prefix, comparisons)
 {
   
   if ((output_prefix!= "") && !grepl('[./]$', output_prefix)) {
@@ -85,9 +87,9 @@ calculateMutRate <- function(filename, output_prefix)
     cat("Number of selective plate counts:", num_selective, "\n") 
     cat("Number of nonselective plate counts:", num_nonselective, "\n")
     
-    
     if (num_selective == 0 || num_nonselective == 0 ) {
       cat("***ERROR! Did not find plate counts for selective/nonselective. Skipping strain.\n")
+      next
     }
     
     nonselective_cell_counts = mean(nonselective.rows$CFU/nonselective.rows$fraction)
@@ -119,10 +121,10 @@ calculateMutRate <- function(filename, output_prefix)
     cat("         95% confidence interval (mu): [", CI[1], ",", CI[2] , "]\n")
     
     output_data = rbind(output_data, data.frame(strain = this.strain, num_nonselective_plates = num_nonselective, num_selective_plates = num_selective, selective_fraction = selective_fraction, avg_cells_per_culture = nonselective_cell_counts, mu = mu, CI.95.lower = CI[1], CI.95.higher = CI[2]))
-
   }
   
   write_csv(output_data, paste0(output_prefix,"output.csv"))
+  
   ##make chart for pretty values
   plot <- ggplot(output_data, aes(x = strain, y = mu)) +
     geom_point() +
@@ -136,6 +138,90 @@ calculateMutRate <- function(filename, output_prefix)
   
   save_plot(paste0(output_prefix, "plot.pdf"), plot)
   
+  
+  if (!comparisons) {
+    return()
+  }
+  
+  comparison_data = data.frame()
+  # Optional code that performs comparisons between rates
+  
+  
+  
+  for(i in 1:length(strains)) {
+    j = i
+    while(T) {
+      j = j + 1
+      if (j > length(strains)) {
+        break
+      }
+      cat("\nComparing mutation rates...", "\n")
+      cat("  STRAIN 1:", strains[i], "\n")
+      cat("  STRAIN 2:", strains[j], "\n")
+      
+      this.strain.i = strains[i]
+      this.strain.j = strains[j]
+      
+      this.strain.data.i = data %>% filter(strain==this.strain.i)
+      this.strain.data.j = data %>% filter(strain==this.strain.j)
+      
+      selective.rows.i = this.strain.data.i %>% filter(plate=="selective")
+      selective.rows.j = this.strain.data.j %>% filter(plate=="selective")
+      
+      nonselective.rows.i = this.strain.data.i %>% filter(plate=="nonselective")
+      nonselective.rows.j = this.strain.data.j %>% filter(plate=="nonselective")
+      
+      if (nrow(selective.rows.i) == 0 || nrow(nonselective.rows.i) == 0 ) {
+        cat("***ERROR! Did not find plate counts for selective/nonselective. Skipping pair\n")
+        next
+      }
+      
+      if (nrow(selective.rows.i) == 0 || nrow(nonselective.rows.j) == 0 ) {
+        cat("***ERROR! Did not find plate counts for selective/nonselective. Skipping pair\n")
+        next
+      }
+      
+      #all selective plates must have the same fraction
+      selective_fraction_list.i = selective.rows.i %>% count(fraction)
+      if (nrow(selective_fraction_list.i) > 1) {
+        cat("***ERROR! Multiple fractions found for selective plates. Skipping pair\n")
+        next
+      }
+      selective_fraction.i = selective_fraction_list.i$fraction[1]
+      
+      selective_fraction_list.j = selective.rows.j %>% count(fraction)
+      if (nrow(selective_fraction_list.j) > 1) {
+        cat("***ERROR! Multiple fractions found for selective plates. Skipping pair\n")
+        next
+      }
+      selective_fraction.j = selective_fraction_list.j$fraction[1]
+      
+      nonselective_cell_counts.i = mean(nonselective.rows.i$CFU/nonselective.rows.i$fraction)
+      nonselective_cell_counts.j = mean(nonselective.rows.j$CFU/nonselective.rows.j$fraction)
+      
+      cat("  R:", nonselective_cell_counts.j/nonselective_cell_counts.i, "\n")
+      cat("  e1:", selective_fraction.i, "\n")
+      cat("  e2:", selective_fraction.j, "\n")
+      
+      this.result = LRT.LD.plating(
+        selective.rows.i$CFU, 
+        selective.rows.j$CFU, 
+        R = nonselective_cell_counts.j/nonselective_cell_counts.i,
+        e1 = selective_fraction.i,
+        e2 = selective_fraction.j
+      )
+      this.p.value = this.result[2]
+      
+      cat("  p-value:", this.p.value, "\n")
+      
+      comparison_data = rbind(comparison_data, data.frame(strain.1 = this.strain.i, strain.2 = this.strain.j, p.value = this.p.value))
+      
+    }
+  }
+  
+  write_csv(comparison_data, paste0(output_prefix,"comparisons.csv"))
+  
+  
 }
 
-calculateMutRate(filename = opt$input, output_prefix = opt$output)
+calculateMutRate(filename = opt$input, output_prefix = opt$output, comparisons = opt$comparisons)
