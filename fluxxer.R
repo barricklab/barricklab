@@ -203,13 +203,24 @@ calculateMutRate <- function(filename, output_prefix, comparisons)
       cat("  e1:", selective_fraction.i, "\n")
       cat("  e2:", selective_fraction.j, "\n")
       
-      this.result = LRT.LD.plating(
-        selective.rows.i$CFU, 
-        selective.rows.j$CFU, 
-        R = nonselective_cell_counts.j/nonselective_cell_counts.i,
-        e1 = selective_fraction.i,
-        e2 = selective_fraction.j
-      )
+      # Use simpler rSalvador function with plating efficiencies are 100%
+      # because it is more robust to failures...
+      this.result = c()
+      if ((selective_fraction.i==1) & (selective_fraction.j==1)) {
+        this.result = LRT.MK(
+          selective.rows.i$CFU, 
+          selective.rows.j$CFU, 
+          R = nonselective_cell_counts.j/nonselective_cell_counts.i
+        )
+      } else {
+        this.result = LRT.LD.plating(
+          selective.rows.i$CFU, 
+          selective.rows.j$CFU, 
+          R = nonselective_cell_counts.j/nonselective_cell_counts.i,
+          e1 = selective_fraction.i,
+          e2 = selective_fraction.j
+        )
+      }
       this.p.value = this.result[2]
       
       cat("  p-value:", this.p.value, "\n")
