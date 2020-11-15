@@ -21,14 +21,14 @@ you should use the 'trimmomatic-PE-unique' mode with the --preserve-pairs option
 ensures that (1) the files of read pairs are actually pairs and (2) each read *pair*,
 rather than read, only gets counted once.
 
-You can generate a commands file for trimming on TACC by using this gdtools command:
-$ gdtools runfile --executable brnaseq --preserve-pairs --options "-j 48"
+You can generate a commands file for trimming on TACC by using a gdtools command like this:
+$ gdtools RUNFILE -m trimmomatic-PE-unique --preserve-pairs --options "-threads 48" 
 
-Run this command on all samples for brnaseq to work correctly:
-brnaseq -j 16 -g 01_Data/<sample>.gd -o 03_Output/<sample> -r 02_Downloads/REL606.gff `ls 02_Trimmed/<sample>*` &> 04_Logs/<sample>.log
+You can generate a commands file for running these commands on TACC by using a gdtools command like this:
+$ gdtools RUNFILE --preserve-pairs --executable brnaseq --options "-j 48"
 
-You can generate a commands file for running on TACC by using this gdtools command:
-$ gdtools runfile --options "-threads 48"
+Or run this command on all samples for brnaseq to work correctly:
+brnaseq -j 48 -g 01_Data/<sample>.gd -o 03_Output/<sample> -r 02_Downloads/REL606.gff `ls 02_Trimmed/<sample>*` &> 04_Logs/<sample>.log
 
 Usage: brnaseq FINISH [-d 03_Output] [-o final_output]
 
@@ -66,7 +66,7 @@ Do not delete intermediate files when done with them. Used for debugging.
 
 =item B<--count-all|-a>
 
-Count reads that can be alligned/assigned to more than one gene for all of them. HTSeq setting --nonunique none is used by default. 
+Count reads that can be aligned/assigned to more than one gene for all of them. HTSeq setting --nonunique none is used by default. 
 Setting this flag makes uses --nonunique all instead.
 
 =item B<--data|-d>
