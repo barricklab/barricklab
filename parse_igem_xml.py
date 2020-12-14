@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 #This script can parse the XML download of the iGEM Registry database available here:
 # http://parts.igem.org/partsdb/download.cgi?type=parts
 # 20 November 2019 version
@@ -11,8 +13,11 @@
 # The output is in "xml_parts.csv"
 
 import xmltodict
-from Bio.Seq import Seq
 import csv
+
+from Bio import SeqIO
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
 
 with open('xml_parts_gremlins_zapped.xml', encoding = "utf8") as fd:
     doc = xmltodict.parse(fd.read())
@@ -20,7 +25,7 @@ with open('xml_parts_gremlins_zapped.xml', encoding = "utf8") as fd:
 parts = doc["mysqldump"]["database"]["table_data"][0]
 parts_seq_features = doc["mysqldump"]["database"]["table_data"][1]
 
-# Step 1: Create a new dictionary that allows looking up part sequencew and info by their part_id
+# Step 1: Create a new dictionary that allows looking up part sequences and info by their part_id
 
 # Entries in the parts database look like this:
 # 	<row>
@@ -149,9 +154,22 @@ for row in parts["row"]:
     num_complete_parts = num_complete_parts + 1
     part_id_dict[new_entry['part_id']] = new_entry
 
+
+# Write CSV and FASTA
+outputSequenceFile = open("xml_parts.fasta", "w")
+outputPartsFile = open("xml_parts.csv", "w")
+parts_writer= csv.DictWriter(outputPartsFile, fieldnames= ('part_id', 'part_name', 'sequence', 'short_desc'))
+parts_writer.writeheader()
+for key in sorted(part_id_dict.keys()):
+    if part_id_dict[key]['sequence'] != '':
+        s = SeqRecord(seq = Seq(part_id_dict[key]['sequence']), id = part_id_dict[key]['part_name'], description = part_id_dict[key]['short_desc'])
+        SeqIO.write(s, outputSequenceFile, "fasta")
+
+    parts_writer.writerow(part_id_dict[key])
 #print(part_id_dict)
 
 print("Number of parts (complete): " + str(num_parts) + " (" + str(num_complete_parts) + ")")
+
 
 # Step 2: find the features annotated in those sequences.
 
@@ -224,9 +242,9 @@ for row in parts_seq_features["row"]:
     output_table.append(this_seq_feature)
 
 #print(output_table)
-print("Number of parts (complete): " + str(num_parts) + " (" + str(num_complete_parts) + ")")
+print("Number of features with sequences (complete): " + str(num_parts_seq_features) + " (" + str(num_complete_parts_seq_features) + ")")
 
-outputMatchFile = open("xml_parts.csv", "w")
+outputMatchFile = open("xml_parts_features.csv", "w")
 matches_writer= csv.DictWriter(outputMatchFile, fieldnames=sorted(output_table[1].keys()) )
 matches_writer.writeheader()
 for row in output_table:
