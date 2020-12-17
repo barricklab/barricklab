@@ -72,7 +72,7 @@ calculateMutRate <- function(filename, output_prefix, comparisons)
   
   output_data <- tibble()
   
-  #cycle through each column to calculate mutatation rate and confidence  
+  #cycle through each column to calculate mutation rate and confidence  
   for(this.strain in strains) {
     cat("\nSTRAIN:", this.strain, "\n")
     #locate Non_selective separator
