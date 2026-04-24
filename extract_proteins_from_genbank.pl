@@ -76,7 +76,7 @@ while (my $seq_object = $in->next_seq) {
   
     if ($feat_object->has_tag('translation')) {
       
-      my @locus_tags =  $feat_object->get_tag_values('locus_tag');
+      my @locus_tags =  $feat_object->get_tag_values('protein_id');
       my @translations =  $feat_object->get_tag_values('translation');
       print OUT ">$locus_tags[0]\n$translations[0]\n";
     }
